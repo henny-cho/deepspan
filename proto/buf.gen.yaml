@@ -1,27 +1,35 @@
 version: v2
+
+# Managed mode: automatically sets go_package and other file-level options.
 managed:
   enabled: true
   override:
     - file_option: go_package_prefix
       value: github.com/myorg/deepspan/gen/go
+
 plugins:
-  - remote: buf.build/protocolbuffers/go
+  # ── Go ───────────────────────────────────────────────────────────────────────
+  # Generates .pb.go files (message/enum types)
+  - remote: buf.build/protocolbuffers/go:v1.34.2
     out: ../gen/go
     opt:
       - paths=source_relative
-  - remote: buf.build/grpc/go
+
+  # Generates _connect.go files (ConnectRPC service interfaces + handlers)
+  - remote: buf.build/connectrpc/go:v1.16.2
     out: ../gen/go
     opt:
       - paths=source_relative
-  - remote: buf.build/connectrpc/go
-    out: ../gen/go
-    opt:
-      - paths=source_relative
-  - remote: buf.build/protocolbuffers/python
+
+  # ── Python ───────────────────────────────────────────────────────────────────
+  # Generates _pb2.py files (message types)
+  - remote: buf.build/protocolbuffers/python:v4.27.3
     out: ../gen/python
     opt:
       - paths=source_relative
-  - remote: buf.build/community/nipunn1313-mypy-protobuf
+
+  # Generates _pb2.pyi type stubs (mypy)
+  - remote: buf.build/community/nipunn1313-mypy-protobuf:v3.6.0
     out: ../gen/python
     opt:
       - paths=source_relative
