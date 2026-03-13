@@ -6,7 +6,7 @@
 #include <deepspan/userlib/device.hpp>
 #include <deepspan/userlib/error.hpp>
 #include <deepspan/userlib/async_client.hpp>
-#include <etl/expected.h>
+#include <expected>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -48,11 +48,11 @@ public:
         Entry* entry_{nullptr};
     };
 
-    static etl::expected<std::unique_ptr<DevicePool>, deepspan::userlib::Error>
+    static std::expected<std::unique_ptr<DevicePool>, deepspan::userlib::Error>
         create(std::vector<std::string> device_paths, unsigned uring_queue_depth = 64);
 
     // acquire(): returns an idle Entry. Returns Error::DeviceOpenFailed if all are in use.
-    etl::expected<Guard, deepspan::userlib::Error> acquire();
+    std::expected<Guard, deepspan::userlib::Error> acquire();
 
     std::size_t size()     const noexcept;
     std::size_t in_use()   const noexcept;

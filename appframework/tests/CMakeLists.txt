@@ -9,8 +9,10 @@ cmake_minimum_required(VERSION 3.25)
 if(DEEPSPAN_USE_SYSTEM_DEPS)
     find_package(GTest REQUIRED)
 else()
-    add_subdirectory(${PROJECT_SOURCE_DIR}/../third_party/googletest
-                     ${CMAKE_CURRENT_BINARY_DIR}/googletest)
+    if(NOT TARGET gtest)
+        add_subdirectory(${PROJECT_SOURCE_DIR}/../third_party/googletest
+                         ${CMAKE_CURRENT_BINARY_DIR}/googletest)
+    endif()
     if(TARGET gtest_main AND NOT TARGET GTest::gtest_main)
         add_library(GTest::gtest_main ALIAS gtest_main)
     endif()
@@ -35,7 +37,7 @@ target_link_libraries(deepspan-appframework-tests
         GTest::gtest_main
 )
 
-target_compile_features(deepspan-appframework-tests PRIVATE cxx_std_20)
+target_compile_features(deepspan-appframework-tests PRIVATE cxx_std_23)
 
 target_compile_options(deepspan-appframework-tests PRIVATE
     -Wall

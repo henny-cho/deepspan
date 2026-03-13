@@ -5,32 +5,34 @@
 
 #include <deepspan/appframework/session_manager.hpp>
 
+#include <memory>
 #include <utility>
 
 namespace deepspan::appframework {
 
-SessionManager::SessionManager(std::unique_ptr<DevicePool> pool, CircuitBreaker cb)
+SessionManager::SessionManager(std::unique_ptr<DevicePool> pool,
+                               std::unique_ptr<CircuitBreaker> cb)
     : pool_(std::move(pool))
     , cb_(std::move(cb))
 {}
 
 /*static*/
-etl::expected<SessionManager, deepspan::userlib::Error>
+std::expected<SessionManager, deepspan::userlib::Error>
 SessionManager::create(Config cfg) {
     auto pool_result = DevicePool::create(
         std::move(cfg.device_paths), cfg.uring_queue_depth);
     if (!pool_result.has_value()) {
-        return etl::make_unexpected(pool_result.error());
+        return std::unexpected(pool_result.error());
     }
 
-    CircuitBreaker cb(std::move(cfg.cb_config));
+    auto cb = std::make_unique<CircuitBreaker>(std::move(cfg.cb_config));
 
     return SessionManager(std::move(pool_result.value()), std::move(cb));
 }
 
-etl::expected<void, deepspan::userlib::Error>
+std::expected<void, deepspan::userlib::Error>
 SessionManager::execute(std::function<bool(deepspan::userlib::AsyncClient&)> f) {
-    const bool ok = cb_.call([&]() -> bool {
+    const bool ok = cb_->call([&]() -> bool {
         auto guard_result = pool_->acquire();
         if (!guard_result.has_value()) {
             return false;
@@ -39,13 +41,13 @@ SessionManager::execute(std::function<bool(deepspan::userlib::AsyncClient&)> f) 
     });
 
     if (!ok) {
-        return etl::make_unexpected(deepspan::userlib::Error::SubmitFailed);
+        return std::unexpected(deepspan::userlib::Error::SubmitFailed);
     }
     return {};
 }
 
 CircuitBreaker::State SessionManager::circuit_state() const noexcept {
-    return cb_.state();
+    return cb_->state();
 }
 
 } // namespace deepspan::appframework

@@ -32,11 +32,11 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install SDK with dev deps
-        working-directory: deepspan/sdk
+        working-directory: sdk
         run: uv sync --extra dev
 
       - name: Run tests
-        working-directory: deepspan/sdk
+        working-directory: sdk
         run: uv run pytest --tb=short -v
 
       - name: Upload coverage
@@ -44,4 +44,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: python-coverage
-          path: deepspan/sdk/.coverage
+          path: sdk/.coverage

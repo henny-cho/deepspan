@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 project(deepspan-appframework VERSION 0.1.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(DEEPSPAN_USE_SYSTEM_DEPS "Use system-installed dependencies" ON)
@@ -28,7 +28,7 @@ target_link_libraries(deepspan-appframework
     PUBLIC deepspan-userlib
 )
 
-target_compile_features(deepspan-appframework PUBLIC cxx_std_20)
+target_compile_features(deepspan-appframework PUBLIC cxx_std_23)
 
 target_compile_options(deepspan-appframework PRIVATE
     -Wall

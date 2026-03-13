@@ -20,7 +20,9 @@ type TelemetryServiceHandler interface {
 // NewTelemetryServiceHandler builds an http.Handler for TelemetryServiceHandler.
 func NewTelemetryServiceHandler(svc TelemetryServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	mux := http.NewServeMux()
-	mux.Handle(connect.NewUnaryHandler("/deepspan.v1.TelemetryService/GetTelemetry", svc.GetTelemetry, opts...))
-	mux.Handle(connect.NewServerStreamHandler("/deepspan.v1.TelemetryService/StreamTelemetry", svc.StreamTelemetry, opts...))
+	mux.Handle("/deepspan.v1.TelemetryService/GetTelemetry",
+		connect.NewUnaryHandler("/deepspan.v1.TelemetryService/GetTelemetry", svc.GetTelemetry, opts...))
+	mux.Handle("/deepspan.v1.TelemetryService/StreamTelemetry",
+		connect.NewServerStreamHandler("/deepspan.v1.TelemetryService/StreamTelemetry", svc.StreamTelemetry, opts...))
 	return "/deepspan.v1.TelemetryService/", mux
 }

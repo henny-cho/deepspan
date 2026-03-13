@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <cstring>
 #include <cerrno>
+#include <utility>
 
 namespace deepspan::hw_model {
 

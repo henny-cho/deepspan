@@ -78,15 +78,22 @@
     }
   ],
   "buildPresets": [
-    { "name": "dev",      "configurePreset": "dev" },
-    { "name": "sim",      "configurePreset": "sim" },
-    { "name": "release",  "configurePreset": "release" },
-    { "name": "coverage", "configurePreset": "coverage" }
+    { "name": "dev",           "configurePreset": "dev" },
+    { "name": "dev-submodule", "configurePreset": "dev-submodule" },
+    { "name": "sim",           "configurePreset": "sim" },
+    { "name": "release",       "configurePreset": "release" },
+    { "name": "coverage",      "configurePreset": "coverage" }
   ],
   "testPresets": [
     {
       "name": "dev",
       "configurePreset": "dev",
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 4 }
+    },
+    {
+      "name": "dev-submodule",
+      "configurePreset": "dev-submodule",
       "output": { "outputOnFailure": true },
       "execution": { "jobs": 4 }
     },

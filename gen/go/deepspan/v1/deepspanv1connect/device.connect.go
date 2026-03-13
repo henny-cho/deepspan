@@ -28,10 +28,14 @@ type HwipServiceHandler interface {
 // NewHwipServiceHandler builds an http.Handler for HwipServiceHandler.
 func NewHwipServiceHandler(svc HwipServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	mux := http.NewServeMux()
-	mux.Handle(connect.NewUnaryHandler("/deepspan.v1.HwipService/ListDevices", svc.ListDevices, opts...))
-	mux.Handle(connect.NewUnaryHandler("/deepspan.v1.HwipService/GetDeviceStatus", svc.GetDeviceStatus, opts...))
-	mux.Handle(connect.NewUnaryHandler("/deepspan.v1.HwipService/SubmitRequest", svc.SubmitRequest, opts...))
-	mux.Handle(connect.NewServerStreamHandler("/deepspan.v1.HwipService/StreamEvents", svc.StreamEvents, opts...))
+	mux.Handle("/deepspan.v1.HwipService/ListDevices",
+		connect.NewUnaryHandler("/deepspan.v1.HwipService/ListDevices", svc.ListDevices, opts...))
+	mux.Handle("/deepspan.v1.HwipService/GetDeviceStatus",
+		connect.NewUnaryHandler("/deepspan.v1.HwipService/GetDeviceStatus", svc.GetDeviceStatus, opts...))
+	mux.Handle("/deepspan.v1.HwipService/SubmitRequest",
+		connect.NewUnaryHandler("/deepspan.v1.HwipService/SubmitRequest", svc.SubmitRequest, opts...))
+	mux.Handle("/deepspan.v1.HwipService/StreamEvents",
+		connect.NewServerStreamHandler("/deepspan.v1.HwipService/StreamEvents", svc.StreamEvents, opts...))
 	return "/deepspan.v1.HwipService/", mux
 }
 
@@ -46,10 +50,14 @@ type ManagementServiceHandler interface {
 // NewManagementServiceHandler builds an http.Handler for ManagementServiceHandler.
 func NewManagementServiceHandler(svc ManagementServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	mux := http.NewServeMux()
-	mux.Handle(connect.NewUnaryHandler("/deepspan.v1.ManagementService/GetFirmwareInfo", svc.GetFirmwareInfo, opts...))
-	mux.Handle(connect.NewUnaryHandler("/deepspan.v1.ManagementService/ResetDevice", svc.ResetDevice, opts...))
-	mux.Handle(connect.NewUnaryHandler("/deepspan.v1.ManagementService/PushConfig", svc.PushConfig, opts...))
-	mux.Handle(connect.NewUnaryHandler("/deepspan.v1.ManagementService/GetConsolePath", svc.GetConsolePath, opts...))
+	mux.Handle("/deepspan.v1.ManagementService/GetFirmwareInfo",
+		connect.NewUnaryHandler("/deepspan.v1.ManagementService/GetFirmwareInfo", svc.GetFirmwareInfo, opts...))
+	mux.Handle("/deepspan.v1.ManagementService/ResetDevice",
+		connect.NewUnaryHandler("/deepspan.v1.ManagementService/ResetDevice", svc.ResetDevice, opts...))
+	mux.Handle("/deepspan.v1.ManagementService/PushConfig",
+		connect.NewUnaryHandler("/deepspan.v1.ManagementService/PushConfig", svc.PushConfig, opts...))
+	mux.Handle("/deepspan.v1.ManagementService/GetConsolePath",
+		connect.NewUnaryHandler("/deepspan.v1.ManagementService/GetConsolePath", svc.GetConsolePath, opts...))
 	return "/deepspan.v1.ManagementService/", mux
 }
 

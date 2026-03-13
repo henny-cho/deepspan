@@ -51,4 +51,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: twister-results
-          path: deepspan/twister-out/
+          path: twister-out/

@@ -12,7 +12,7 @@ project(deepspan-userlib
 # Options
 # ---------------------------------------------------------------------------
 option(DEEPSPAN_USE_SYSTEM_DEPS
-    "Use system-installed dependencies (etl, liburing). OFF = use vendored copies."
+    "Use system-installed dependencies (liburing). OFF = use vendored googletest for tests."
     ON
 )
 option(DEEPSPAN_BUILD_TESTS
@@ -23,7 +23,7 @@ option(DEEPSPAN_BUILD_TESTS
 # ---------------------------------------------------------------------------
 # Language standard
 # ---------------------------------------------------------------------------
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -31,13 +31,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Dependencies
 # ---------------------------------------------------------------------------
 
-# ETL (Embedded Template Library) — provides etl::expected
-if(DEEPSPAN_USE_SYSTEM_DEPS)
-    find_package(etl REQUIRED)
-else()
-    add_subdirectory(${PROJECT_SOURCE_DIR}/../third_party/etl
-                     ${CMAKE_CURRENT_BINARY_DIR}/etl)
-endif()
+# ETL is used only in Zephyr firmware; userlib uses std::expected (C++23).
 
 # liburing — always sourced from the system (not vendored)
 find_package(PkgConfig REQUIRED)
@@ -62,13 +56,11 @@ target_include_directories(deepspan-userlib
 )
 
 target_link_libraries(deepspan-userlib
-    PUBLIC
-        etl::etl
     PRIVATE
         PkgConfig::liburing
 )
 
-target_compile_features(deepspan-userlib PUBLIC cxx_std_20)
+target_compile_features(deepspan-userlib PUBLIC cxx_std_23)
 
 target_compile_options(deepspan-userlib PRIVATE
     -Wall

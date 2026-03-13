@@ -7,6 +7,7 @@
 
 #include <cerrno>
 #include <cstring>
+#include <string>
 #include <utility>
 
 // POSIX / Linux headers
@@ -32,7 +33,7 @@ DeepspanDevice::DeepspanDevice(int fd, uint32_t uapi_ver) noexcept
 // Static factory: open()
 // ---------------------------------------------------------------------------
 
-etl::expected<DeepspanDevice, Error>
+std::expected<DeepspanDevice, Error>
 DeepspanDevice::open(std::string_view device_path) {
     // Build a null-terminated path for the C API.
     // std::string guarantees null termination.
@@ -41,7 +42,7 @@ DeepspanDevice::open(std::string_view device_path) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     const int fd = ::open(path.c_str(), O_RDWR | O_CLOEXEC);
     if (fd < 0) {
-        return etl::unexpected{Error::DeviceOpenFailed};
+        return std::unexpected(Error::DeviceOpenFailed);
     }
 
     // Query the kernel driver UAPI version.
@@ -49,12 +50,12 @@ DeepspanDevice::open(std::string_view device_path) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     if (::ioctl(fd, DEEPSPAN_IOC_GET_VERSION, &ver) < 0) {
         ::close(fd);
-        return etl::unexpected{Error::IoError};
+        return std::unexpected(Error::IoError);
     }
 
     if (ver < DEEPSPAN_UAPI_VERSION_MIN) {
         ::close(fd);
-        return etl::unexpected{Error::UnsupportedKernelVersion};
+        return std::unexpected(Error::UnsupportedKernelVersion);
     }
 
     return DeepspanDevice{fd, static_cast<uint32_t>(ver)};
@@ -98,7 +99,7 @@ DeepspanDevice& DeepspanDevice::operator=(DeepspanDevice&& other) noexcept {
 // submit_sync() — synchronous ioctl fallback
 // ---------------------------------------------------------------------------
 
-etl::expected<deepspan_result, Error>
+std::expected<deepspan_result, Error>
 DeepspanDevice::submit_sync(const deepspan_req& req) {
     // Make a mutable copy: the ioctl is IOWR and the kernel may write
     // the result back into the same buffer.  deepspan_result is piggybacked
@@ -114,7 +115,7 @@ DeepspanDevice::submit_sync(const deepspan_req& req) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     const int ret = ::ioctl(fd_, DEEPSPAN_IOC_SUBMIT, &req_copy);
     if (ret < 0) {
-        return etl::unexpected{Error::SubmitFailed};
+        return std::unexpected(Error::SubmitFailed);
     }
 
     // The kernel driver returns the result status in the ioctl return value

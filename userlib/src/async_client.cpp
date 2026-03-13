@@ -19,6 +19,18 @@
 
 namespace deepspan::userlib {
 
+namespace {
+
+// liburing 2.5 (Ubuntu 24.04) does not expose io_uring_prep_uring_cmd as a
+// public inline helper; construct the SQE for IORING_OP_URING_CMD manually.
+inline void prep_uring_cmd(io_uring_sqe* sqe, int fd, __u32 cmd_op,
+                            const void* addr, unsigned len) noexcept {
+    io_uring_prep_rw(IORING_OP_URING_CMD, sqe, fd, addr, len, 0);
+    sqe->cmd_op = cmd_op;
+}
+
+} // anonymous namespace
+
 // ---------------------------------------------------------------------------
 // Private constructor
 // ---------------------------------------------------------------------------
@@ -30,16 +42,16 @@ AsyncClient::AsyncClient(io_uring ring, int device_fd) noexcept
 // Static factory: create()
 // ---------------------------------------------------------------------------
 
-etl::expected<AsyncClient, Error>
+std::expected<AsyncClient, Error>
 AsyncClient::create(DeepspanDevice& device, unsigned queue_depth) {
     if (device.fd() < 0) {
-        return etl::unexpected{Error::DeviceOpenFailed};
+        return std::unexpected(Error::DeviceOpenFailed);
     }
 
     io_uring ring{};
     const int ret = io_uring_queue_init(queue_depth, &ring, 0);
     if (ret < 0) {
-        return etl::unexpected{Error::IouringSetupFailed};
+        return std::unexpected(Error::IouringSetupFailed);
     }
 
     return AsyncClient{ring, device.fd()};
@@ -86,91 +98,78 @@ AsyncClient& AsyncClient::operator=(AsyncClient&& other) noexcept {
 // submit()
 // ---------------------------------------------------------------------------
 
-etl::expected<void, Error>
+std::expected<void, Error>
 AsyncClient::submit(const deepspan_req& req, uint64_t user_data) {
     io_uring_sqe* sqe = io_uring_get_sqe(&ring_);
     if (sqe == nullptr) {
         // SQ is full.
-        return etl::unexpected{Error::SubmitFailed};
+        return std::unexpected(Error::SubmitFailed);
     }
 
     // Keep a copy of the request because the kernel may read it asynchronously
     // after this function returns.  The SQE carries a pointer to a fixed-size
     // command buffer that the liburing helper copies from req_copy.
-    // SAFETY: io_uring_prep_uring_cmd stores the pointer; the driver reads it
+    // SAFETY: prep_uring_cmd stores the pointer; the driver reads it
     // before the completion is signalled, so the stack copy is valid for the
     // lifetime of the in-flight operation only when the caller does not reuse
     // the SQE before the CQE.  For correctness in production code callers
     // should use heap-allocated buffers; here we follow the simple convention
     // documented in the project spec.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    io_uring_prep_uring_cmd(sqe,
-                            device_fd_,
-                            DEEPSPAN_CMD_OP,
-                            reinterpret_cast<const void*>(&req), // NOLINT
-                            sizeof(req));
+    prep_uring_cmd(sqe,
+                   device_fd_,
+                   DEEPSPAN_CMD_OP,
+                   reinterpret_cast<const void*>(&req), // NOLINT
+                   sizeof(req));
 
     io_uring_sqe_set_data64(sqe, user_data);
 
     const int submitted = io_uring_submit(&ring_);
     if (submitted < 0) {
-        return etl::unexpected{Error::SubmitFailed};
+        return std::unexpected(Error::SubmitFailed);
     }
 
-    return {};  // etl::expected<void, Error> success
+    return {};  // std::expected<void, Error> success
 }
 
 // ---------------------------------------------------------------------------
 // reap()
 // ---------------------------------------------------------------------------
 
-etl::expected<int, Error>
+std::expected<int, Error>
 AsyncClient::reap(CompletionCallback cb, bool wait) {
+    io_uring_cqe* cqe = nullptr;
     int count = 0;
 
-    // Process all immediately available completions first, then optionally
-    // block for one more if none were found and wait==true.
-    while (true) {
-        io_uring_cqe* cqe = nullptr;
-        int ret = 0;
-
-        if (wait && count == 0) {
-            ret = io_uring_wait_cqe(&ring_, &cqe);
-        } else {
-            ret = io_uring_peek_cqe(&ring_, &cqe);
-        }
-
-        if (ret == -EAGAIN || cqe == nullptr) {
-            // No more completions available.
-            break;
-        }
+    if (wait) {
+        const int ret = io_uring_wait_cqe(&ring_, &cqe);
         if (ret < 0) {
-            return etl::unexpected{Error::IoError};
+            return std::unexpected(Error::IoError);
         }
-
-        const uint64_t ud = io_uring_cqe_get_data64(cqe);
-
-        // Build a deepspan_result from the CQE.
-        // For URING_CMD the kernel places the operation status in cqe->res
-        // (negative errno on error, 0 on success).  Extended data (result_lo,
-        // result_hi) would require big-CQE support; we leave them zero for now.
-        deepspan_result result{};
-        result.status    = static_cast<__s32>(cqe->res);
-        result.result_lo = 0;
-        result.result_hi = 0;
-        result._pad      = 0;
-
+        deepspan_result dr{};
+        dr.status = cqe->res;
+        const uint64_t token = io_uring_cqe_get_data64(cqe);
         io_uring_cqe_seen(&ring_, cqe);
         ++count;
-
-        if (result.status < 0) {
-            cb(ud, etl::unexpected{Error::IoError});
+        if (dr.status < 0) {
+            cb(token, std::unexpected(Error::IoError));
         } else {
-            cb(ud, result);
+            cb(token, dr);
         }
+    }
 
-        // After the first blocked completion, switch to non-blocking peek.
-        wait = false;
+    // Drain any additional completed CQEs without blocking.
+    while (io_uring_peek_cqe(&ring_, &cqe) == 0 && cqe != nullptr) {
+        deepspan_result dr{};
+        dr.status = cqe->res;
+        const uint64_t token = io_uring_cqe_get_data64(cqe);
+        io_uring_cqe_seen(&ring_, cqe);
+        ++count;
+        if (dr.status < 0) {
+            cb(token, std::unexpected(Error::IoError));
+        } else {
+            cb(token, dr);
+        }
     }
 
     return count;
@@ -180,29 +179,25 @@ AsyncClient::reap(CompletionCallback cb, bool wait) {
 // submit_and_wait()
 // ---------------------------------------------------------------------------
 
-etl::expected<deepspan_result, Error>
+std::expected<deepspan_result, Error>
 AsyncClient::submit_and_wait(const deepspan_req& req) {
-    constexpr uint64_t kSentinel = 0xDEAD'BEEF'CAFE'0000ULL;
-
-    auto sub_result = submit(req, kSentinel);
-    if (!sub_result) {
-        return etl::unexpected{sub_result.error()};
+    auto submit_result = submit(req, 0);
+    if (!submit_result.has_value()) {
+        return std::unexpected(submit_result.error());
     }
 
-    etl::expected<deepspan_result, Error> outcome =
-        etl::unexpected{Error::IoError};
-
+    std::expected<deepspan_result, Error> captured = std::unexpected(Error::IoError);
     auto reap_result = reap(
-        [&](uint64_t /*user_data*/, etl::expected<deepspan_result, Error> r) {
-            outcome = r;
+        [&captured](uint64_t, std::expected<deepspan_result, Error> r) {
+            captured = std::move(r);
         },
         /*wait=*/true);
 
-    if (!reap_result) {
-        return etl::unexpected{reap_result.error()};
+    if (!reap_result.has_value()) {
+        return std::unexpected(reap_result.error());
     }
 
-    return outcome;
+    return captured;
 }
 
 } // namespace deepspan::userlib

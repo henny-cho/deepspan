@@ -9,6 +9,7 @@ on:
       - 'userlib/**'
       - 'appframework/**'
       - 'kernel/include/**'
+      - 'CMakePresets.json'
       - '.github/workflows/ci-cpp.yml'
   pull_request:
     branches: [main]
@@ -17,6 +18,7 @@ on:
       - 'userlib/**'
       - 'appframework/**'
       - 'kernel/include/**'
+      - 'CMakePresets.json'
 
 jobs:
   build-and-test:
@@ -39,17 +41,21 @@ jobs:
 
       - name: Install Conan
         if: matrix.preset == 'dev'
-        run: pip install conan==2.*
+        run: |
+          sudo apt-get install -y --no-install-recommends pipx
+          pipx install "conan>=2,<3"
+          pipx ensurepath
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Configure Conan profile
         if: matrix.preset == 'dev'
         run: conan profile detect --force
 
       - name: Configure CMake (${{ matrix.preset }})
-        run: cmake --preset ${{ matrix.preset }} -S deepspan
+        run: cmake --preset ${{ matrix.preset }}
 
       - name: Build
-        run: cmake --build build --preset ${{ matrix.preset }} -j$(nproc)
+        run: cmake --build --preset ${{ matrix.preset }} -j$(nproc)
 
       - name: Test
         run: ctest --preset ${{ matrix.preset }} --output-on-failure
@@ -59,4 +65,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cpp-test-results-${{ matrix.preset }}
-          path: build/Testing/
+          path: build/${{ matrix.preset }}/Testing/

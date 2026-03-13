@@ -46,7 +46,7 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          workdir: deepspan/server
+          workdir: server
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -68,7 +68,7 @@ jobs:
       - name: Run GoReleaser (mgmt-daemon)
         uses: goreleaser/goreleaser-action@v6
         with:
-          workdir: deepspan/mgmt-daemon
+          workdir: mgmt-daemon
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -87,10 +87,10 @@ jobs:
       - uses: astral-sh/setup-uv@v3
 
       - name: Build SDK wheel
-        working-directory: deepspan/sdk
+        working-directory: sdk
         run: uv build
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: deepspan/sdk/dist/
+          packages-dir: sdk/dist/

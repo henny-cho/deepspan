@@ -53,7 +53,7 @@ DevicePool::DevicePool(std::vector<Entry> entries)
 {}
 
 /*static*/
-etl::expected<std::unique_ptr<DevicePool>, deepspan::userlib::Error>
+std::expected<std::unique_ptr<DevicePool>, deepspan::userlib::Error>
 DevicePool::create(std::vector<std::string> device_paths, unsigned uring_queue_depth) {
     std::vector<Entry> entries;
     entries.reserve(device_paths.size());
@@ -62,14 +62,14 @@ DevicePool::create(std::vector<std::string> device_paths, unsigned uring_queue_d
         // Open the device.
         auto dev_result = deepspan::userlib::DeepspanDevice::open(path);
         if (!dev_result.has_value()) {
-            return etl::make_unexpected(dev_result.error());
+            return std::unexpected(dev_result.error());
         }
 
         // Create the async client backed by the just-opened device.
         auto client_result = deepspan::userlib::AsyncClient::create(
             dev_result.value(), uring_queue_depth);
         if (!client_result.has_value()) {
-            return etl::make_unexpected(client_result.error());
+            return std::unexpected(client_result.error());
         }
 
         entries.push_back(Entry{
@@ -85,7 +85,7 @@ DevicePool::create(std::vector<std::string> device_paths, unsigned uring_queue_d
     return std::unique_ptr<DevicePool>(new DevicePool(std::move(entries)));
 }
 
-etl::expected<DevicePool::Guard, deepspan::userlib::Error> DevicePool::acquire() {
+std::expected<DevicePool::Guard, deepspan::userlib::Error> DevicePool::acquire() {
     std::unique_lock<std::mutex> lock(mu_);
 
     for (auto& entry : entries_) {
@@ -95,7 +95,7 @@ etl::expected<DevicePool::Guard, deepspan::userlib::Error> DevicePool::acquire()
         }
     }
 
-    return etl::make_unexpected(deepspan::userlib::Error::DeviceOpenFailed);
+    return std::unexpected(deepspan::userlib::Error::DeviceOpenFailed);
 }
 
 std::size_t DevicePool::size() const noexcept {

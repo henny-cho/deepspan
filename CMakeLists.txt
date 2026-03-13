@@ -25,6 +25,14 @@ else()
     find_package(spdlog QUIET)
 endif()
 
+# ETL (Embedded Template Library) — firmware/Zephyr only.
+# userlib and appframework use std::expected (C++23) instead.
+if(DEEPSPAN_BUILD_FIRMWARE)
+    if(EXISTS "${CMAKE_SOURCE_DIR}/third_party/etl/CMakeLists.txt")
+        add_subdirectory(third_party/etl EXCLUDE_FROM_ALL)
+    endif()
+endif()
+
 # ── Layer builds ──────────────────────────────────────────────────────
 if(DEEPSPAN_BUILD_HW_MODEL)
     add_subdirectory(hw-model)

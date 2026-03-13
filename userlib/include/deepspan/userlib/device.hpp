@@ -6,9 +6,8 @@
 #pragma once
 
 #include <cstdint>
+#include <expected>
 #include <string_view>
-
-#include <etl/expected.h>
 
 // Forward-declare the kernel UAPI types so that callers only need this header.
 // The full definitions come from <linux/deepspan.h> which is included in the
@@ -35,7 +34,7 @@ public:
     ///   - Error::UnsupportedKernelVersion  if the driver UAPI version is
     ///                                      below DEEPSPAN_UAPI_VERSION_MIN
     ///   - Error::IoError                   if the version ioctl fails
-    static etl::expected<DeepspanDevice, Error> open(std::string_view device_path);
+    static std::expected<DeepspanDevice, Error> open(std::string_view device_path);
 
     /// Closes the file descriptor.
     ~DeepspanDevice();
@@ -61,7 +60,7 @@ public:
     /// Use this when io_uring is unavailable or for simple one-shot calls.
     /// Errors:
     ///   - Error::SubmitFailed  if the ioctl returns an error
-    etl::expected<deepspan_result, Error> submit_sync(const deepspan_req& req);
+    std::expected<deepspan_result, Error> submit_sync(const deepspan_req& req);
 
 private:
     explicit DeepspanDevice(int fd, uint32_t uapi_ver) noexcept;

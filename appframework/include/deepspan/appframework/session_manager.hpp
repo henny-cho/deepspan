@@ -6,7 +6,7 @@
 #include "device_pool.hpp"
 #include "circuit_breaker.hpp"
 #include <deepspan/userlib/error.hpp>
-#include <etl/expected.h>
+#include <expected>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -24,11 +24,11 @@ public:
         CircuitBreaker::Config cb_config{};
     };
 
-    static etl::expected<SessionManager, deepspan::userlib::Error> create(Config cfg);
+    static std::expected<SessionManager, deepspan::userlib::Error> create(Config cfg);
 
     // execute(): executes f using an available device.
     // f: (AsyncClient&) → bool  (true=success, false=failure for CB)
-    etl::expected<void, deepspan::userlib::Error>
+    std::expected<void, deepspan::userlib::Error>
         execute(std::function<bool(deepspan::userlib::AsyncClient&)> f);
 
     CircuitBreaker::State circuit_state() const noexcept;
@@ -42,9 +42,10 @@ public:
     SessionManager& operator=(SessionManager&&) noexcept = default;
 
 private:
-    explicit SessionManager(std::unique_ptr<DevicePool> pool, CircuitBreaker cb);
-    std::unique_ptr<DevicePool> pool_;
-    CircuitBreaker cb_;
+    explicit SessionManager(std::unique_ptr<DevicePool> pool,
+                            std::unique_ptr<CircuitBreaker> cb);
+    std::unique_ptr<DevicePool>     pool_;
+    std::unique_ptr<CircuitBreaker> cb_;
 };
 
 } // namespace deepspan::appframework
