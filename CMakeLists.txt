@@ -5,10 +5,13 @@ project(Deepspan VERSION 0.1.0 LANGUAGES C CXX)
 option(DEEPSPAN_BUILD_HW_MODEL    "Build hw-model simulator"     ON)
 option(DEEPSPAN_BUILD_USERLIB     "Build userlib"                ON)
 option(DEEPSPAN_BUILD_APPFRAMEWORK "Build appframework"          ON)
-option(DEEPSPAN_BUILD_MGMT_DAEMON "Build mgmt-daemon"           ON)
 option(DEEPSPAN_BUILD_FIRMWARE    "Build Zephyr firmware (West)" OFF)
 option(DEEPSPAN_BUILD_KERNEL      "Build Linux kernel module"    OFF)
 option(DEEPSPAN_BUILD_TESTS       "Build tests"                  ON)
+
+if(DEEPSPAN_BUILD_TESTS)
+    enable_testing()
+endif()
 option(DEEPSPAN_USE_SYSTEM_DEPS   "Use Conan/system packages (OFF=submodule)" ON)
 
 # ── Dependencies ──────────────────────────────────────────────────────
@@ -44,10 +47,6 @@ endif()
 
 if(DEEPSPAN_BUILD_APPFRAMEWORK)
     add_subdirectory(appframework)
-endif()
-
-if(DEEPSPAN_BUILD_MGMT_DAEMON)
-    add_subdirectory(mgmt-daemon)
 endif()
 
 if(DEEPSPAN_BUILD_KERNEL)
