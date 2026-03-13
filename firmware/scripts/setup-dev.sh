@@ -35,10 +35,11 @@ sudo apt-get install -y --no-install-recommends \
     libsdl2-dev \
     libmagic1
 
-echo "==> [firmware] Installing West and Zephyr Python requirements..."
-pip3 install --user west
-
-# Ensure ~/.local/bin is on PATH
+echo "==> [firmware] Installing West via pipx..."
+# Use pipx to avoid PEP 668 restriction on Ubuntu 24.04+
+sudo apt-get install -y --no-install-recommends pipx
+pipx install west
+pipx ensurepath
 export PATH="$HOME/.local/bin:$PATH"
 
 echo "==> [firmware] Installing Zephyr SDK ${ZEPHYR_SDK_VERSION}..."
@@ -59,5 +60,6 @@ else
 fi
 
 echo "==> [firmware] Hint: run 'west init -l . && west update' from the deepspan root"
-echo "==>            then  'pip3 install --user -r zephyr/scripts/requirements.txt'"
+echo "==>            then  'python3 -m venv .venv-zephyr && source .venv-zephyr/bin/activate'"
+echo "==>            then  'pip install -r zephyr/scripts/requirements.txt'"
 echo "==> [firmware] Done."

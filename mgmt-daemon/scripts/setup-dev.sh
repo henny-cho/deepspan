@@ -4,7 +4,7 @@
 # Installs: Go 1.23, golangci-lint, buf CLI
 set -euo pipefail
 
-GO_VERSION="1.23.5"
+GO_VERSION="1.26.1"
 GO_TARBALL="go${GO_VERSION}.linux-amd64.tar.gz"
 GO_URL="https://go.dev/dl/${GO_TARBALL}"
 GO_INSTALL_DIR="/usr/local"

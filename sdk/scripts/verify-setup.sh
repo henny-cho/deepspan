@@ -27,10 +27,11 @@ else
     echo "    uv: $(uv --version)"
 fi
 
-# venv / lockfile
+# venv / lockfile — uv workspace root is one level above sdk/
 LAYER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-if [ ! -f "${LAYER_DIR}/uv.lock" ] && [ ! -d "${LAYER_DIR}/.venv" ]; then
-    echo "    WARNING: uv.lock / .venv not found — run 'uv sync --extra dev' in sdk/"
+WORKSPACE_ROOT="$(cd "${LAYER_DIR}/.." && pwd)"
+if [ ! -d "${LAYER_DIR}/.venv" ] && [ ! -d "${WORKSPACE_ROOT}/.venv" ]; then
+    echo "    WARNING: .venv not found — run 'uv sync --extra dev' in sdk/"
 fi
 
 if [[ ${#FAILED[@]} -gt 0 ]]; then

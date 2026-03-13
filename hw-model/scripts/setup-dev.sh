@@ -22,9 +22,13 @@ sudo apt-get install -y --no-install-recommends \
 sudo apt-get install -y --no-install-recommends liburing-dev
 
 # Conan v2 (optional — only needed for DEEPSPAN_USE_SYSTEM_DEPS=ON)
+# Use pipx to avoid PEP 668 "externally-managed-environment" restriction on Ubuntu 24.04+
 if ! command -v conan &>/dev/null; then
-    echo "  --> Installing Conan v2..."
-    pip3 install --user "conan>=2,<3"
+    echo "  --> Installing Conan v2 via pipx..."
+    sudo apt-get install -y --no-install-recommends pipx
+    pipx install "conan>=2,<3"
+    pipx ensurepath
+    export PATH="${HOME}/.local/bin:$PATH"
     conan profile detect --force
 fi
 

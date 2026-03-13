@@ -4,7 +4,7 @@
 set -euo pipefail
 
 FAILED=()
-MIN_GO="1.23"
+MIN_GO="1.26"
 
 echo "--- [mgmt-daemon] ---"
 

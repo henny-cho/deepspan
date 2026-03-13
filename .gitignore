@@ -48,6 +48,7 @@ modules.order
 # Zephyr / West
 .west/
 twister-out/
+.venv-zephyr/
 
 # Conan
 .conan/

@@ -68,7 +68,8 @@ sudo apt-get install -y --no-install-recommends \
     software-properties-common \
     python3 \
     python3-pip \
-    python3-venv
+    python3-venv \
+    pipx
 
 # ── Per-layer setup ───────────────────────────────────────────────────────────
 FAILED=()
@@ -89,8 +90,10 @@ if [[ " ${LAYERS[*]} " == *" firmware "* ]] && ! should_skip firmware; then
     fi
     echo "  --> west update (this may take a while)..."
     west update --narrow -o=--depth=1
-    echo "  --> Installing Zephyr Python requirements..."
-    pip3 install --user -r zephyr/scripts/requirements.txt
+    echo "  --> Installing Zephyr Python requirements in venv..."
+    python3 -m venv "${DEEPSPAN_ROOT}/.venv-zephyr"
+    "${DEEPSPAN_ROOT}/.venv-zephyr/bin/pip" install -r zephyr/scripts/requirements.txt
+    echo "  --> Activate with: source ${DEEPSPAN_ROOT}/.venv-zephyr/bin/activate"
 fi
 
 # ── Git submodules (for dev-submodule CMake preset) ───────────────────────────
