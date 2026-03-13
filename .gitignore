@@ -23,6 +23,9 @@ __pycache__/
 .uv/
 *.whl
 
+# Proto generated output — run ./scripts/codegen.sh to regenerate
+gen/python/
+
 # Kernel module
 *.ko
 *.mod
