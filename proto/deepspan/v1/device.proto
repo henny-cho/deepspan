@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+package deepspan.v1;
+
+option go_package = "github.com/myorg/deepspan/gen/go/deepspan/v1;deepspanv1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+// HwipService: Hardware IP device control service
+// Provides gRPC + gRPC-Web + REST on a single port via ConnectRPC
+service HwipService {
+  // List devices
+  rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse);
+
+  // Get device status
+  rpc GetDeviceStatus(GetDeviceStatusRequest) returns (GetDeviceStatusResponse);
+
+  // Submit request (async, io_uring-based)
+  rpc SubmitRequest(SubmitRequestRequest) returns (SubmitRequestResponse);
+
+  // Event streaming (server-side streaming)
+  rpc StreamEvents(StreamEventsRequest) returns (stream DeviceEvent);
+}
+
+// ── Message definitions ───────────────────────────────────────────────────────
+
+message ListDevicesRequest {}
+
+message ListDevicesResponse {
+  repeated DeviceInfo devices = 1;
+}
+
+message DeviceInfo {
+  string device_id    = 1;  // e.g. "hwip0"
+  string device_path  = 2;  // e.g. "/dev/hwip0"
+  DeviceState state   = 3;
+  uint32 uapi_version = 4;
+  string fw_version   = 5;  // Firmware version (queried from mgmt-daemon)
+}
+
+message GetDeviceStatusRequest {
+  string device_id = 1;
+}
+
+message GetDeviceStatusResponse {
+  DeviceInfo info            = 1;
+  DeviceMetrics metrics      = 2;
+  google.protobuf.Timestamp last_seen = 3;
+}
+
+message DeviceMetrics {
+  uint64 requests_total     = 1;
+  uint64 requests_failed    = 2;
+  uint64 bytes_sent         = 3;
+  uint64 bytes_received     = 4;
+  google.protobuf.Duration avg_latency = 5;
+}
+
+message SubmitRequestRequest {
+  string device_id  = 1;
+  uint32 opcode     = 2;   // HWIP_OP_* (see deepspan_uapi.h)
+  bytes  payload    = 3;
+  uint32 timeout_ms = 4;   // 0 = default (5000ms)
+  uint32 flags      = 5;
+}
+
+message SubmitRequestResponse {
+  uint32 request_id = 1;
+  uint32 status     = 2;   // 0 = success
+  bytes  result     = 3;
+  google.protobuf.Duration latency = 4;
+}
+
+message StreamEventsRequest {
+  string device_id    = 1;
+  repeated EventType filter = 2;  // empty array = all events
+}
+
+message DeviceEvent {
+  string    device_id  = 1;
+  EventType event_type = 2;
+  bytes     data       = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  uint32    severity   = 5;  // 0=info, 1=warn, 2=error
+}
+
+// ── Enumerations ──────────────────────────────────────────────────────────────
+
+enum DeviceState {
+  DEVICE_STATE_UNSPECIFIED  = 0;
+  DEVICE_STATE_INITIALIZING = 1;
+  DEVICE_STATE_READY        = 2;
+  DEVICE_STATE_RUNNING      = 3;
+  DEVICE_STATE_ERROR        = 4;
+  DEVICE_STATE_RESETTING    = 5;
+}
+
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED    = 0;
+  EVENT_TYPE_STATE_CHANGE   = 1;
+  EVENT_TYPE_ERROR          = 2;
+  EVENT_TYPE_TELEMETRY      = 3;
+  EVENT_TYPE_FW_LOG         = 4;   // Firmware log (OpenAMP proxy console)
+}

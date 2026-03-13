@@ -1,0 +1,8 @@
+tests:
+  firmware.etl.fsm.basic:
+    platform_allow:
+      - native_sim/native/64
+    tags:
+      - etl
+      - fsm
+    timeout: 60

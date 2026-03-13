@@ -1,0 +1,5 @@
+[tool.uv.workspace]
+members = ["sdk"]
+
+[tool.uv.sources]
+deepspan-sdk = { workspace = true }

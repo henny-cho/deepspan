@@ -1,0 +1,27 @@
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/myorg/deepspan/gen/go
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: ../gen/go
+    opt:
+      - paths=source_relative
+  - remote: buf.build/grpc/go
+    out: ../gen/go
+    opt:
+      - paths=source_relative
+  - remote: buf.build/connectrpc/go
+    out: ../gen/go
+    opt:
+      - paths=source_relative
+  - remote: buf.build/protocolbuffers/python
+    out: ../gen/python
+    opt:
+      - paths=source_relative
+  - remote: buf.build/community/nipunn1313-mypy-protobuf
+    out: ../gen/python
+    opt:
+      - paths=source_relative

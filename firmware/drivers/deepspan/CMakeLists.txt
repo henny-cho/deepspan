@@ -1,0 +1,2 @@
+zephyr_library_named(deepspan_hwip_driver)
+zephyr_library_sources(deepspan_hwip.c)

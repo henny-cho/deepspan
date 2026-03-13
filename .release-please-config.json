@@ -1,0 +1,40 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "simple",
+  "packages": {
+    "deepspan/hw-model": {
+      "component": "hw-model",
+      "release-type": "simple",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "deepspan/firmware": {
+      "component": "firmware",
+      "release-type": "simple"
+    },
+    "deepspan/kernel": {
+      "component": "kernel",
+      "release-type": "simple"
+    },
+    "deepspan/userlib": {
+      "component": "userlib",
+      "release-type": "simple"
+    },
+    "deepspan/appframework": {
+      "component": "appframework",
+      "release-type": "simple"
+    },
+    "deepspan/mgmt-daemon": {
+      "component": "mgmt-daemon",
+      "release-type": "go"
+    },
+    "deepspan/server": {
+      "component": "server",
+      "release-type": "go"
+    },
+    "deepspan/sdk": {
+      "component": "sdk",
+      "release-type": "python"
+    }
+  },
+  "separate-pull-requests": true
+}

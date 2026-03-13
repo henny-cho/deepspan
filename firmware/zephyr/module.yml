@@ -1,0 +1,8 @@
+name: deepspan-firmware
+build:
+  cmake: .
+  kconfig: Kconfig
+depends:
+  - etl
+  - cib
+  - openamp

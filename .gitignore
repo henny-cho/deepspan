@@ -1,0 +1,54 @@
+# Build outputs
+build/
+dist/
+*.egg-info/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+_deps/
+
+# Go
+bin/
+*.test
+vendor/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.uv/
+*.whl
+
+# Kernel module
+*.ko
+*.mod
+*.mod.c
+*.mod.o
+*.o
+*.order
+*.symvers
+Module.symvers
+modules.order
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.clangd/
+.cache/
+
+# Zephyr / West
+.west/
+twister-out/
+
+# Conan
+.conan/
+
+# OS
+.DS_Store
+Thumbs.db

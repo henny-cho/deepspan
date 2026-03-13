@@ -1,0 +1,6 @@
+config DEEPSPAN_HWIP_DRIVER
+    bool "Deepspan HWIP driver"
+    depends on DEEPSPAN_FIRMWARE
+    help
+      Enables the Deepspan HWIP Zephyr driver.
+      Used when a compatible = "deepspan,hwip" node is present in the DTS.

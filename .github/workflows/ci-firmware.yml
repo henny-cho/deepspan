@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: Apache-2.0
+name: CI / Firmware (Zephyr)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'firmware/**'
+      - 'west.yml'
+      - '.github/workflows/ci-firmware.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'firmware/**'
+      - 'west.yml'
+
+jobs:
+  build:
+    name: Build Firmware (native_sim)
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/zephyrproject-rtos/ci:v0.26.14
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: deepspan
+
+      - name: West init & update
+        working-directory: deepspan
+        run: |
+          west init -l .
+          west update --narrow -o=--depth=1
+
+      - name: Build firmware (native_sim/native/64)
+        working-directory: deepspan
+        run: |
+          west build -b native_sim/native/64 firmware/app \
+            -- -DCONFIG_ASSERT=y -DCONFIG_LOG=y
+
+      - name: Run Ztest (native_sim)
+        working-directory: deepspan
+        run: |
+          west twister -T firmware/tests \
+            --platform native_sim \
+            --inline-logs \
+            -v
+
+      - name: Upload twister results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: twister-results
+          path: deepspan/twister-out/
