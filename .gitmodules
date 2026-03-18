@@ -1,0 +1,14 @@
+[submodule "third_party/spdlog"]
+	path = third_party/spdlog
+	url = https://github.com/gabime/spdlog.git
+[submodule "third_party/nlohmann_json"]
+	path = third_party/nlohmann_json
+	url = https://github.com/nlohmann/json.git
+[submodule "third_party/googletest"]
+	path = third_party/googletest
+	url = https://github.com/google/googletest.git
+# Used only by the Zephyr firmware layer (DEEPSPAN_BUILD_FIRMWARE=ON).
+# Not used by userlib, appframework, or hw-model (they use std::expected C++23).
+[submodule "third_party/etl"]
+	path = third_party/etl
+	url = https://github.com/ETLCPP/etl.git

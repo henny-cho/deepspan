@@ -1,0 +1,66 @@
+# Build outputs
+build/
+dist/
+*.egg-info/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+_deps/
+
+# Go
+bin/
+*.test
+vendor/
+# Go compiled binaries (go build output in module roots)
+mgmt-daemon/mgmt-daemon
+server/server
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.uv/
+*.whl
+
+# Proto generated output — run ./scripts/codegen.sh to regenerate
+gen/python/
+
+# Build logs
+*.log
+
+# Kernel module
+*.ko
+*.mod
+!go.mod
+*.mod.c
+*.mod.o
+*.o
+*.order
+*.symvers
+Module.symvers
+modules.order
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.clangd/
+.cache/
+
+# Zephyr / West
+.west/
+twister-out/
+twister-out.*/
+.venv-zephyr/
+
+# Conan
+.conan/
+
+# OS
+.DS_Store
+Thumbs.db

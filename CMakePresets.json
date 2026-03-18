@@ -1,0 +1,106 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 27, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "dev",
+      "inherits": "base",
+      "displayName": "Development (userspace, debug)",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEEPSPAN_BUILD_TESTS": "ON",
+        "DEEPSPAN_BUILD_KERNEL": "OFF",
+        "DEEPSPAN_BUILD_FIRMWARE": "OFF"
+      }
+    },
+    {
+      "name": "dev-submodule",
+      "inherits": "base",
+      "displayName": "Development (git submodule dependencies)",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEEPSPAN_BUILD_TESTS": "ON",
+        "DEEPSPAN_BUILD_KERNEL": "OFF",
+        "DEEPSPAN_BUILD_FIRMWARE": "OFF",
+        "DEEPSPAN_USE_SYSTEM_DEPS": "OFF"
+      }
+    },
+    {
+      "name": "sim",
+      "inherits": "base",
+      "displayName": "Simulation (with firmware)",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEEPSPAN_BUILD_FIRMWARE": "ON",
+        "DEEPSPAN_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "release",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_SHARED_LIBS": "ON",
+        "DEEPSPAN_INSTALL": "ON",
+        "DEEPSPAN_BUILD_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "arm64-cross",
+      "inherits": "base",
+      "displayName": "ARM64 cross-compile",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/aarch64-linux-gnu.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEEPSPAN_BUILD_FIRMWARE": "OFF",
+        "DEEPSPAN_BUILD_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "coverage",
+      "inherits": "base",
+      "displayName": "Coverage measurement",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEEPSPAN_BUILD_TESTS": "ON",
+        "CMAKE_CXX_FLAGS": "--coverage",
+        "CMAKE_C_FLAGS": "--coverage"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "dev",           "configurePreset": "dev" },
+    { "name": "dev-submodule", "configurePreset": "dev-submodule" },
+    { "name": "sim",           "configurePreset": "sim" },
+    { "name": "release",       "configurePreset": "release" },
+    { "name": "coverage",      "configurePreset": "coverage" }
+  ],
+  "testPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 4 }
+    },
+    {
+      "name": "dev-submodule",
+      "configurePreset": "dev-submodule",
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 4 }
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

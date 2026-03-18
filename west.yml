@@ -1,0 +1,54 @@
+manifest:
+  version: "1.2"
+
+  remotes:
+    - name: zephyrproject
+      url-base: https://github.com/zephyrproject-rtos
+    - name: myorg
+      url-base: https://github.com/myorg
+    - name: github
+      url-base: https://github.com
+
+  defaults:
+    remote: myorg
+
+  projects:
+    - name: zephyr
+      remote: zephyrproject
+      revision: v4.3.0
+      import:
+        file: west.yml
+        name-allowlist:
+          - zcbor
+          - mbedtls
+          - cmsis
+          - hal_stm32
+          - openamp
+          - picolibc
+
+    - name: etl
+      remote: github
+      repo-path: ETLCPP/etl
+      revision: 20.39.4
+      path: modules/lib/etl
+      groups:
+        - firmware
+
+    - name: cib
+      remote: github
+      repo-path: intel/compile-time-init-build
+      revision: v1.7.0
+      path: modules/lib/cib
+      groups:
+        - firmware
+
+    - name: openamp
+      remote: github
+      repo-path: OpenAMP/open-amp
+      revision: v2024.10.0
+      path: modules/lib/openamp
+      groups:
+        - firmware
+
+  self:
+    path: deepspan

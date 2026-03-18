@@ -1,0 +1,10 @@
+{
+  "deepspan/hw-model": "0.1.0",
+  "deepspan/firmware": "0.1.0",
+  "deepspan/kernel": "0.1.0",
+  "deepspan/userlib": "0.1.0",
+  "deepspan/appframework": "0.1.0",
+  "deepspan/mgmt-daemon": "0.1.0",
+  "deepspan/server": "0.1.0",
+  "deepspan/sdk": "0.1.0"
+}

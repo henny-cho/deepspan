@@ -1,0 +1,30 @@
+config DEEPSPAN
+    tristate "Deepspan HWIP driver"
+    depends on VIRTIO
+    select VIRTIO_RING
+    help
+      Deepspan HWIP Linux kernel driver.
+      virtio + io_uring based async multi-device support.
+
+if DEEPSPAN
+
+config DEEPSPAN_TRANSPORT_SIM
+    bool "Simulation transport (memfd + eventfd)"
+    default n
+    help
+      Transport for simulation environment. Communicates with native_sim + hw-model.
+
+config DEEPSPAN_TRANSPORT_HW
+    bool "Hardware transport (remoteproc + mailbox)"
+    default y
+    depends on REMOTEPROC
+    help
+      Transport for actual hardware.
+
+config DEEPSPAN_KUNIT_TEST
+    bool "KUnit tests"
+    depends on KUNIT
+    help
+      Build KUnit-based unit tests.
+
+endif

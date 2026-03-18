@@ -1,0 +1,31 @@
+version: v2
+
+# Managed mode: automatically sets go_package and other file-level options.
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/myorg/deepspan/gen/go
+
+plugins:
+  # ── Go ───────────────────────────────────────────────────────────────────────
+  # Generates .pb.go files (message/enum types)
+  # Requires: go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+  - local: protoc-gen-go
+    out: ../gen/go
+    opt:
+      - paths=source_relative
+
+  # Generates _connect.go files (ConnectRPC service interfaces + handlers)
+  # Requires: go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.16.2
+  - local: protoc-gen-connect-go
+    out: ../gen/go
+    opt:
+      - paths=source_relative
+
+  # ── Python ───────────────────────────────────────────────────────────────────
+  # Generates _pb2.py files (message types)
+  - remote: buf.build/protocolbuffers/python
+    out: ../gen/python
+    opt:
+      - paths=source_relative

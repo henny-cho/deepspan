@@ -1,0 +1,83 @@
+# SPDX-License-Identifier: Apache-2.0
+name: CI / Go
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mgmt-daemon/**'
+      - 'server/**'
+      - 'gen/go/**'
+      - 'go.work'
+      - '.github/workflows/ci-go.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mgmt-daemon/**'
+      - 'server/**'
+      - 'gen/go/**'
+      - 'go.work'
+
+jobs:
+  test:
+    name: Test Go services
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        module: [mgmt-daemon, server]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          # Include gen/go and go.work in the cache key; both modules share
+          # gen/go as a local dependency via replace directive + go.work.
+          cache-dependency-path: |
+            ${{ matrix.module }}/go.sum
+            gen/go/go.sum
+
+      - name: Download dependencies
+        # go.work at the repo root is auto-discovered; gen/go is resolved
+        # as a local module via workspace / replace directive — no extra setup needed.
+        working-directory: ${{ matrix.module }}
+        run: go mod download
+
+      - name: Build
+        working-directory: ${{ matrix.module }}
+        run: go build ./...
+
+      - name: Test
+        working-directory: ${{ matrix.module }}
+        run: go test -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage-${{ matrix.module }}
+          path: ${{ matrix.module }}/coverage.out
+
+  lint:
+    name: Lint Go
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache-dependency-path: |
+            mgmt-daemon/go.sum
+            server/go.sum
+            gen/go/go.sum
+      - name: golangci-lint (mgmt-daemon)
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: mgmt-daemon
+          version: latest
+      - name: golangci-lint (server)
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: server
+          version: latest

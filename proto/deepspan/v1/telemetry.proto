@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package deepspan.v1;
+
+option go_package = "github.com/myorg/deepspan/gen/go/deepspan/v1;deepspanv1";
+
+import "google/protobuf/timestamp.proto";
+
+// TelemetryService: Real-time telemetry collection service
+service TelemetryService {
+  // Get telemetry snapshot
+  rpc GetTelemetry(GetTelemetryRequest) returns (GetTelemetryResponse);
+
+  // Real-time telemetry streaming
+  rpc StreamTelemetry(StreamTelemetryRequest) returns (stream TelemetrySnapshot);
+}
+
+message GetTelemetryRequest {
+  string device_id = 1;
+}
+
+message GetTelemetryResponse {
+  TelemetrySnapshot snapshot = 1;
+}
+
+message StreamTelemetryRequest {
+  string device_id      = 1;
+  uint32 interval_ms    = 2;  // Sampling interval (default: 1000ms)
+}
+
+message TelemetrySnapshot {
+  string device_id                    = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  FirmwareTelemetry firmware          = 3;
+  KernelTelemetry   kernel            = 4;
+}
+
+message FirmwareTelemetry {
+  uint32 cpu_usage_pct    = 1;  // 0-100
+  uint32 heap_free_bytes  = 2;
+  uint32 stack_free_bytes = 3;
+  uint32 uptime_ms        = 4;
+  repeated ThreadInfo threads = 5;
+}
+
+message ThreadInfo {
+  string name          = 1;
+  uint32 priority      = 2;
+  string state         = 3;
+  uint32 stack_used    = 4;
+}
+
+message KernelTelemetry {
+  uint64 irq_count      = 1;
+  uint64 dma_bytes      = 2;
+  uint32 vq_depth       = 3;  // Current virtqueue depth
+  uint32 pending_cmds   = 4;  // Number of pending requests in XArray
+}

@@ -1,0 +1,69 @@
+# deepspan firmware Kconfig top-level entry point
+menu "Deepspan Firmware"
+
+config DEEPSPAN_FIRMWARE
+    bool "Enable Deepspan Firmware Library"
+    select CPP
+    select REQUIRES_FULL_LIBCPP
+    help
+      Enables the Deepspan firmware library.
+      Includes ETL, CIB, and VirtioTransport components.
+      Set CONFIG_STD_CPP20=y (or higher) in prj.conf.
+
+if DEEPSPAN_FIRMWARE
+
+config DEEPSPAN_USE_ETL
+    bool "Use Embedded Template Library (ETL)"
+    default y
+    depends on DEEPSPAN_FIRMWARE
+    help
+      Use the ETL library. (etl::fsm, etl::pool, etl::queue, etc.)
+
+config DEEPSPAN_USE_CIB
+    bool "Use compile-time-init-build (CIB)"
+    default y
+    depends on DEEPSPAN_FIRMWARE
+    help
+      Use the Intel CIB library. (cib::nexus, flow::service, etc.)
+      Requires CONFIG_STD_CPP20=y or higher in prj.conf.
+
+config DEEPSPAN_TRANSPORT_SIM
+    bool "Simulation transport (POSIX shm + eventfd)"
+    default y if BOARD_NATIVE_SIM
+    help
+      Use simulation transport for the native_sim target.
+
+config DEEPSPAN_TRANSPORT_VIRTIO
+    bool "VirtIO/RPMsg transport (real hardware)"
+    default y if !BOARD_NATIVE_SIM
+    select VIRTIO
+    select RPMSG
+    select OPENAMP
+    help
+      Use virtio/RPMsg transport for real hardware.
+
+config DEEPSPAN_RPMSG_CTRL_CHANNEL
+    string "RPMsg control channel name"
+    default "rpmsg-ctrl"
+    depends on DEEPSPAN_TRANSPORT_VIRTIO
+
+config DEEPSPAN_RPMSG_CONFIG_CHANNEL
+    string "RPMsg config channel name"
+    default "rpmsg-config"
+    depends on DEEPSPAN_TRANSPORT_VIRTIO
+
+config DEEPSPAN_PROXY_CONSOLE
+    bool "Enable OpenAMP proxy console (PTY)"
+    default y
+    depends on DEEPSPAN_TRANSPORT_VIRTIO
+    select OPENAMP_PROXY
+
+config DEEPSPAN_LOG_LEVEL
+    int "Deepspan log level"
+    default 3
+    range 0 4
+
+rsource "drivers/deepspan/Kconfig"
+
+endif # DEEPSPAN_FIRMWARE
+endmenu

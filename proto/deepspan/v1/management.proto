@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package deepspan.v1;
+
+option go_package = "github.com/myorg/deepspan/gen/go/deepspan/v1;deepspanv1";
+
+// ManagementService: Firmware lifecycle and management service
+// Communicates with firmware over OpenAMP channel via mgmt-daemon
+service ManagementService {
+  // Get firmware info
+  rpc GetFirmwareInfo(GetFirmwareInfoRequest) returns (GetFirmwareInfoResponse);
+
+  // Restart device
+  rpc ResetDevice(ResetDeviceRequest) returns (ResetDeviceResponse);
+
+  // Push runtime configuration (Linux → Zephyr, rpmsg-config channel)
+  rpc PushConfig(PushConfigRequest) returns (PushConfigResponse);
+
+  // Get console PTY path (OpenAMP proxy)
+  rpc GetConsolePath(GetConsolePathRequest) returns (GetConsolePathResponse);
+}
+
+// GetFirmwareInfoRequest: Request to query firmware information
+message GetFirmwareInfoRequest {
+  // Device ID to query (e.g. "hwip0")
+  string device_id = 1;
+}
+
+// GetFirmwareInfoResponse: Firmware version and capability information
+message GetFirmwareInfoResponse {
+  // Firmware version string (e.g. "v2.1.0")
+  string fw_version = 1;
+  // Build timestamp (ISO 8601)
+  string build_date = 2;
+  // virtio/RPMsg protocol version
+  uint32 protocol_version = 3;
+  // List of features activated via dfeatures negotiation
+  repeated string features = 4;
+}
+
+// ResetDeviceRequest: Request to restart a device
+message ResetDeviceRequest {
+  // Device ID to restart
+  string device_id = 1;
+  // true = hard reset (immediate), false = graceful shutdown then restart
+  bool force = 2;
+}
+
+// ResetDeviceResponse: Restart result
+message ResetDeviceResponse {
+  // Whether the restart request succeeded
+  bool success = 1;
+  // Error message on failure
+  string message = 2;
+}
+
+// PushConfigRequest: Push runtime configuration (Linux → Zephyr)
+message PushConfigRequest {
+  // Device ID to push configuration to
+  string device_id = 1;
+  // Configuration as key-value pairs (delivered via rpmsg-config channel)
+  map<string, string> config = 2;
+}
+
+// PushConfigResponse: Configuration push result
+message PushConfigResponse {
+  // Whether the push succeeded
+  bool success = 1;
+  // List of keys rejected by firmware as unrecognized
+  repeated string rejected_keys = 2;
+}
+
+// GetConsolePathRequest: Request for OpenAMP proxy console PTY path
+message GetConsolePathRequest {
+  // Device ID to query PTY for
+  string device_id = 1;
+}
+
+// GetConsolePathResponse: PTY path response
+message GetConsolePathResponse {
+  // Allocated PTY path (e.g. "/dev/pts/3")
+  // Connect to Zephyr console via `screen /dev/pts/3`
+  string pty_path = 1;
+}
