@@ -4,7 +4,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEEPSPAN_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)/deepspan"
+DEEPSPAN_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 BOARD="${1:-native_sim/native/64}"
 
 # west must be on PATH
@@ -23,12 +23,13 @@ fi
 cd "${DEEPSPAN_ROOT}"
 
 echo "==> [firmware] Build app (board: ${BOARD})..."
-west build -b "${BOARD}" firmware/app --build-dir build/firmware/app
+west build -b "${BOARD}" firmware/app --build-dir build/firmware/app \
+    -- -DZEPHYR_EXTRA_MODULES="${DEEPSPAN_ROOT}/firmware"
 
 echo "==> [firmware] Run Ztest via twister..."
 west twister \
     -T firmware/tests \
-    --platform native_sim \
+    --platform native_sim/native/64 \
     --inline-logs \
     -v \
     --outdir build/firmware/twister-out
