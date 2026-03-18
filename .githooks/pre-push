@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# Pre-push hook: run golangci-lint for every Go module before push.
+# Install once with: git config core.hooksPath .githooks
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+GO_MODULES=(mgmt-daemon server)
+
+if ! command -v golangci-lint &>/dev/null; then
+    echo "[pre-push] golangci-lint not found — skipping Go lint" >&2
+    echo "[pre-push] Install: https://golangci-lint.run/welcome/install/" >&2
+    exit 0
+fi
+
+FAILED=()
+for mod in "${GO_MODULES[@]}"; do
+    echo "[pre-push] Linting $mod ..."
+    if ! (cd "$REPO_ROOT/$mod" && golangci-lint run ./...); then
+        FAILED+=("$mod")
+    fi
+done
+
+if [ ${#FAILED[@]} -ne 0 ]; then
+    echo ""
+    echo "[pre-push] ✗ Lint failed in: ${FAILED[*]}" >&2
+    echo "[pre-push] Fix the issues above and retry." >&2
+    exit 1
+fi
+
+echo "[pre-push] ✓ All Go modules passed lint."

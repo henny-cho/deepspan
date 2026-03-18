@@ -24,7 +24,7 @@ func TestSendConfig_WireFormat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("os.Pipe: %v", err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	tr := openamp.NewTransportFromFile(w)
 
@@ -35,7 +35,9 @@ func TestSendConfig_WireFormat(t *testing.T) {
 		t.Fatalf("SendConfig: %v", err)
 	}
 	// Close write-end so the reader sees EOF after the message.
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("close pipe: %v", err)
+	}
 
 	data, err := io.ReadAll(r)
 	if err != nil {
@@ -78,13 +80,15 @@ func TestSendConfig_EmptyKeyValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("os.Pipe: %v", err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	tr := openamp.NewTransportFromFile(w)
 	if err := tr.SendConfig("", ""); err != nil {
 		t.Fatalf("SendConfig: %v", err)
 	}
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("close pipe: %v", err)
+	}
 
 	data, err := io.ReadAll(r)
 	if err != nil {

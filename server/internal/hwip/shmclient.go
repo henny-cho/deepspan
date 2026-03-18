@@ -63,7 +63,7 @@ func (c *ShmClient) SubmitCmd(opcode, arg0, arg1 uint32, timeoutMs uint32) (stat
 	if err != nil {
 		return 0, 0, 0, fmt.Errorf("shm open: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	data, err := syscall.Mmap(int(f.Fd()), 0, shmMapSize,
 		syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
