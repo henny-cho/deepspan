@@ -50,7 +50,7 @@ install_tools() {
     go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.16.2
 
     echo "==> Installing Python proto plugin..."
-    pip3 install --user grpcio-tools mypy-protobuf
+    pipx install grpcio-tools 2>/dev/null || pip3 install --break-system-packages grpcio-tools mypy-protobuf
 }
 
 if $DO_INSTALL; then

@@ -10,26 +10,22 @@ managed:
 plugins:
   # ── Go ───────────────────────────────────────────────────────────────────────
   # Generates .pb.go files (message/enum types)
-  - remote: buf.build/protocolbuffers/go:v1.34.2
+  # Requires: go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+  - local: protoc-gen-go
     out: ../gen/go
     opt:
       - paths=source_relative
 
   # Generates _connect.go files (ConnectRPC service interfaces + handlers)
-  - remote: buf.build/connectrpc/go:v1.16.2
+  # Requires: go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.16.2
+  - local: protoc-gen-connect-go
     out: ../gen/go
     opt:
       - paths=source_relative
 
   # ── Python ───────────────────────────────────────────────────────────────────
   # Generates _pb2.py files (message types)
-  - remote: buf.build/protocolbuffers/python:v4.27.3
-    out: ../gen/python
-    opt:
-      - paths=source_relative
-
-  # Generates _pb2.pyi type stubs (mypy)
-  - remote: buf.build/community/nipunn1313-mypy-protobuf:v3.6.0
+  - remote: buf.build/protocolbuffers/python
     out: ../gen/python
     opt:
       - paths=source_relative
