@@ -8,6 +8,7 @@ on:
       - 'mgmt-daemon/**'
       - 'server/**'
       - 'gen/go/**'
+      - 'go.work'
       - '.github/workflows/ci-go.yml'
   pull_request:
     branches: [main]
@@ -15,6 +16,7 @@ on:
       - 'mgmt-daemon/**'
       - 'server/**'
       - 'gen/go/**'
+      - 'go.work'
 
 jobs:
   test:
@@ -31,9 +33,15 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.26'
-          cache-dependency-path: ${{ matrix.module }}/go.sum
+          # Include gen/go and go.work in the cache key; both modules share
+          # gen/go as a local dependency via replace directive + go.work.
+          cache-dependency-path: |
+            ${{ matrix.module }}/go.sum
+            gen/go/go.sum
 
       - name: Download dependencies
+        # go.work at the repo root is auto-discovered; gen/go is resolved
+        # as a local module via workspace / replace directive — no extra setup needed.
         working-directory: ${{ matrix.module }}
         run: go mod download
 
@@ -59,6 +67,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
+          cache-dependency-path: |
+            mgmt-daemon/go.sum
+            server/go.sum
+            gen/go/go.sum
       - name: golangci-lint (mgmt-daemon)
         uses: golangci/golangci-lint-action@v6
         with:

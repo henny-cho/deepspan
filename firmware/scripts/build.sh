@@ -22,7 +22,11 @@ fi
 
 cd "${DEEPSPAN_ROOT}"
 
-echo "==> [firmware] Build app (board: ${BOARD})..."
+# native_sim uses the host GCC toolchain — no Zephyr SDK needed.
+# ARM targets override this by passing ZEPHYR_TOOLCHAIN_VARIANT=zephyr.
+export ZEPHYR_TOOLCHAIN_VARIANT="${ZEPHYR_TOOLCHAIN_VARIANT:-host}"
+
+echo "==> [firmware] Build app (board: ${BOARD}, toolchain: ${ZEPHYR_TOOLCHAIN_VARIANT})..."
 west build -b "${BOARD}" firmware/app --build-dir build/firmware/app \
     -- -DZEPHYR_EXTRA_MODULES="${DEEPSPAN_ROOT}/firmware"
 

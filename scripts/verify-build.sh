@@ -11,6 +11,12 @@
 #   ./scripts/verify-build.sh --skip firmware,kernel   # skip slow layers
 #
 # Exit code: 0 = all passed, 1 = one or more failed
+#
+# Prerequisites per layer:
+#   firmware   — west workspace initialised (west init -l . && west update)
+#   kernel     — linux-headers-$(uname -r) installed
+#   mgmt-daemon/server — Go 1.26+ on PATH
+#   sdk        — uv on PATH
 set -euo pipefail
 
 DEEPSPAN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -50,9 +56,14 @@ done
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'
 BOLD='\033[1m'; NC='\033[0m'
 
-PASS="${GREEN}PASS${NC}"; FAIL="${RED}FAIL${NC}"; SKIP="${YELLOW}SKIP${NC}"
-
-should_skip() { local l="$1"; for s in "${SKIP_LAYERS[@]:-}"; do [[ "$s" == "$l" ]] && return 0; done; return 1; }
+should_skip() {
+    local l="$1"
+    if [[ ${#SKIP_LAYERS[@]} -eq 0 ]]; then return 1; fi
+    for s in "${SKIP_LAYERS[@]}"; do
+        [[ "$s" == "$l" ]] && return 0
+    done
+    return 1
+}
 
 # ── Per-layer runner ──────────────────────────────────────────────────────────
 declare -A RESULTS=()
@@ -110,7 +121,7 @@ for layer in "${LAYERS[@]}"; do
     duration="${DURATIONS[$layer]:--}"
     case "$result" in
         PASS) colour="${GREEN}" ;;
-        FAIL) colour="${RED}"; ((FAIL_COUNT++)) ;;
+        FAIL) colour="${RED}"; ((FAIL_COUNT++)) || true ;;
         SKIP) colour="${YELLOW}" ;;
         *)    colour="${NC}" ;;
     esac
