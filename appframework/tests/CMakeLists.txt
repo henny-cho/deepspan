@@ -29,6 +29,7 @@ include(GoogleTest)
 add_executable(deepspan-appframework-tests
     unit/test_circuit_breaker.cpp
     unit/test_device_pool.cpp
+    unit/test_session_manager.cpp
 )
 
 target_link_libraries(deepspan-appframework-tests
