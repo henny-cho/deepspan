@@ -28,9 +28,16 @@ target_compile_options(deepspan_hw_model PRIVATE
     $<$<CONFIG:Release>:-O2>
 )
 
-# ── Executable ─────────────────────────────────────────────────────────
+# ── Executables ────────────────────────────────────────────────────────
 add_executable(deepspan-hw-model src/main.cpp)
-target_link_libraries(deepspan-hw-model PRIVATE deepspan_hw_model)
+target_link_libraries(deepspan-hw-model PRIVATE deepspan_hw_model rt)
+
+# firmware_sim: standalone simulated firmware for hw-model interaction testing
+add_executable(deepspan-firmware-sim src/firmware_sim.cpp)
+target_link_libraries(deepspan-firmware-sim PRIVATE deepspan_hw_model rt)
+target_include_directories(deepspan-firmware-sim PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
 
 # ── Tests ────────────────────────────────────────────────────────────
 if(DEEPSPAN_BUILD_TESTS OR BUILD_TESTING)
@@ -39,7 +46,7 @@ if(DEEPSPAN_BUILD_TESTS OR BUILD_TESTING)
 endif()
 
 # ── Install rules ─────────────────────────────────────────────────────
-install(TARGETS deepspan_hw_model deepspan-hw-model
+install(TARGETS deepspan_hw_model deepspan-hw-model deepspan-firmware-sim
     EXPORT  DeepspanHwModelTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

@@ -50,7 +50,32 @@ constexpr uint32_t HW_CAPS_IRQ    = (1u << 1);
 constexpr uint32_t HW_CAPS_MULTI  = (1u << 2);     ///< Multi-device support
 
 /// Shared memory layout
-constexpr size_t SHM_REG_SIZE   = sizeof(RegMap);  ///< Register region
-constexpr size_t SHM_TOTAL_SIZE = 4096u;            ///< Total shm size (page-aligned)
+constexpr size_t SHM_REG_SIZE    = sizeof(RegMap);  ///< Register region (0x200 bytes)
+constexpr size_t SHM_STATS_OFFSET = SHM_REG_SIZE;   ///< ShmStats starts here (0x200)
+constexpr size_t SHM_TOTAL_SIZE  = 4096u;            ///< Total shm size (page-aligned)
+
+/// Extended stats area at SHM_STATS_OFFSET (beyond RegMap).
+/// Writers: cmd_count/start_time_sec/last_* written by hw-model poll_loop.
+///          fw_cmd_count written solely by firmware_sim.
+/// Readers: server (Go, via /dev/shm/<name>), firmware_sim.
+/// Offset layout (little-endian):
+///   +0  : cmd_count         uint64
+///   +8  : start_time_sec    uint64
+///   +16 : last_opcode       uint32
+///   +20 : last_result_status uint32
+///   +24 : fw_cmd_count      uint64
+struct ShmStats {
+    volatile uint64_t cmd_count;          ///< Commands processed by hw-model
+    volatile uint64_t start_time_sec;     ///< hw-model start time (unix epoch)
+    volatile uint32_t last_opcode;        ///< Last command opcode
+    volatile uint32_t last_result_status; ///< Last result status
+    volatile uint64_t fw_cmd_count;       ///< Commands sent by firmware_sim
+};
+static_assert(offsetof(ShmStats, cmd_count)          == 0);
+static_assert(offsetof(ShmStats, start_time_sec)     == 8);
+static_assert(offsetof(ShmStats, last_opcode)        == 16);
+static_assert(offsetof(ShmStats, last_result_status) == 20);
+static_assert(offsetof(ShmStats, fw_cmd_count)       == 24);
+static_assert(SHM_STATS_OFFSET + sizeof(ShmStats) <= SHM_TOTAL_SIZE);
 
 } // namespace deepspan::hw_model

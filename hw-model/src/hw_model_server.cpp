@@ -3,6 +3,7 @@
 #include <thread>
 #include <chrono>
 #include <cstring>
+#include <ctime>
 
 namespace deepspan::hw_model {
 
@@ -21,7 +22,13 @@ HwModelServer::~HwModelServer() {
 }
 
 bool HwModelServer::init() {
-    return transport_.init();
+    start_time_sec_ = static_cast<uint64_t>(std::time(nullptr));
+    if (!transport_.init()) return false;
+    // Write start time into ShmStats once
+    auto* stats = reinterpret_cast<ShmStats*>(
+        static_cast<char*>(transport_.reg_base()) + SHM_STATS_OFFSET);
+    __atomic_store_n(&stats->start_time_sec, start_time_sec_, __ATOMIC_RELAXED);
+    return true;
 }
 
 void HwModelServer::run() {
@@ -72,6 +79,14 @@ void HwModelServer::poll_loop() {
             reg->result_data0   = r0;
             reg->result_data1   = r1;
             reg->result_status  = status;
+
+            // Update ShmStats before raising IRQ so readers see consistent state
+            uint64_t count = cmd_count_.fetch_add(1, std::memory_order_relaxed) + 1;
+            auto* stats = reinterpret_cast<ShmStats*>(
+                static_cast<char*>(transport_.reg_base()) + SHM_STATS_OFFSET);
+            __atomic_store_n(&stats->cmd_count,          count,  __ATOMIC_RELEASE);
+            __atomic_store_n(&stats->last_opcode,        opcode, __ATOMIC_RELAXED);
+            __atomic_store_n(&stats->last_result_status, status, __ATOMIC_RELAXED);
 
             // Update STATUS and clear START
             __atomic_and_fetch(&reg->ctrl, ~ctrl_bits::START, __ATOMIC_RELEASE);

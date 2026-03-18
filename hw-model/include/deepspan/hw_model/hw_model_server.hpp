@@ -5,6 +5,7 @@
 #include <thread>
 #include <functional>
 #include <string>
+#include <cstdint>
 
 namespace deepspan::hw_model {
 
@@ -56,11 +57,13 @@ private:
     uint32_t default_handler(uint32_t opcode, uint32_t arg0, uint32_t arg1,
                              uint32_t* r0, uint32_t* r1);
 
-    HwModelConfig  cfg_;
-    SimTransport   transport_;
-    CmdHandler     cmd_handler_;
+    HwModelConfig    cfg_;
+    SimTransport     transport_;
+    CmdHandler       cmd_handler_;
     std::atomic_bool running_{false};
-    std::thread    poll_thread_;
+    std::thread      poll_thread_;
+    std::atomic<uint64_t> cmd_count_{0};
+    uint64_t         start_time_sec_{0};
 };
 
 } // namespace deepspan::hw_model
