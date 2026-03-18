@@ -63,5 +63,7 @@ config DEEPSPAN_LOG_LEVEL
     default 3
     range 0 4
 
+rsource "drivers/deepspan/Kconfig"
+
 endif # DEEPSPAN_FIRMWARE
 endmenu

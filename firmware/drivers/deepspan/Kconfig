@@ -1,6 +1,23 @@
 config DEEPSPAN_HWIP_DRIVER
-    bool "Deepspan HWIP driver"
+    bool "Deepspan HWIP driver (production MMIO)"
     depends on DEEPSPAN_FIRMWARE
     help
-      Enables the Deepspan HWIP Zephyr driver.
-      Used when a compatible = "deepspan,hwip" node is present in the DTS.
+      Enables the Deepspan HWIP Zephyr driver for real hardware.
+      Uses the DTS reg address for MMIO register access.
+
+config DEEPSPAN_HWIP_DRIVER_SIM
+    bool "Deepspan HWIP driver (native_sim via POSIX shm)"
+    depends on DEEPSPAN_FIRMWARE && BOARD_NATIVE_SIM
+    default y if BOARD_NATIVE_SIM
+    help
+      native_sim variant of the HWIP driver.
+      Opens the hw-model POSIX shared memory and mmaps the RegMap region.
+      Completion is detected by a polling thread watching IRQ_STATUS.
+
+config DEEPSPAN_HWIP_SIM_SHM_NAME
+    string "hw-model POSIX shm name (without leading /)"
+    depends on DEEPSPAN_HWIP_DRIVER_SIM
+    default "deepspan-sim"
+    help
+      Name of the POSIX shared memory segment created by hw-model.
+      Override at runtime by setting the DEEPSPAN_SHM_NAME environment variable.
