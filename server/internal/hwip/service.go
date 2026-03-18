@@ -15,13 +15,18 @@ import (
 
 // Service implements deepspanv1connect.HwipServiceHandler.
 type Service struct {
-	shm *ShmClient
+	sub Submitter
 }
 
-// NewService creates a Service. Pass shmName="" to disable real shm access
-// (unit-test / no-hardware mode).
+// NewService creates a Service backed by the shm RegMap (simulation mode).
+// Pass shmName="" for unit-test / no-hardware mode (stub responses).
 func NewService(shmName string) *Service {
-	return &Service{shm: newShmClient(shmName)}
+	return &Service{sub: newShmClient(shmName)}
+}
+
+// newServiceWithSubmitter injects any Submitter — used by CgoClient and tests.
+func newServiceWithSubmitter(s Submitter) *Service {
+	return &Service{sub: s}
 }
 
 func (s *Service) ListDevices(
@@ -70,7 +75,7 @@ func (s *Service) SubmitRequest(
 	}
 
 	start := time.Now()
-	rstatus, rdata0, rdata1, err := s.shm.SubmitCmd(req.Msg.Opcode, arg0, arg1, req.Msg.TimeoutMs)
+	rstatus, rdata0, rdata1, err := s.sub.SubmitCmd(req.Msg.Opcode, arg0, arg1, req.Msg.TimeoutMs)
 	elapsed := time.Since(start)
 
 	if err != nil {
