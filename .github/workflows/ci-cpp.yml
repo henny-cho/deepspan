@@ -28,6 +28,7 @@ jobs:
     name: Build & Test (${{ matrix.hwip }}, ${{ matrix.preset }})
     runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         hwip: [accel, codec]
         preset: [dev]

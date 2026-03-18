@@ -6,7 +6,7 @@ package hwip
 // Implementations:
 //   - *ShmClient  — simulation mode: writes directly to hw-model POSIX shm RegMap
 //   - *CgoClient  — production mode: routes through SessionManager (DevicePool +
-//                   CircuitBreaker) using io_uring URING_CMD on /dev/hwipN
+//     CircuitBreaker) using io_uring URING_CMD on /dev/hwipN
 type Submitter interface {
 	// SubmitCmd issues opcode with arg0/arg1 and blocks until completion.
 	// timeoutMs=0 uses the implementation default (typically 5000 ms).

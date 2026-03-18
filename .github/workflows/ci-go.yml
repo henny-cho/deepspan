@@ -22,11 +22,16 @@ on:
       - 'gen/hwip/**'
       - 'go.work'
 
+env:
+  GO_VERSION: '1.26'
+  GOLANGCI_VERSION: 'v2.11.3'
+
 jobs:
   test:
-    name: Test Go (${{ matrix.module }})
+    name: Test (${{ matrix.slug }})
     runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         include:
           - module: mgmt-daemon
@@ -39,13 +44,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - uses: actions/setup-go@v6
         with:
-          go-version: '1.26'
+          go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: |
             ${{ matrix.module }}/go.sum
             gen/go/go.sum
+            gen/hwip/accel/go/go.sum
 
       - name: Download dependencies
         working-directory: ${{ matrix.module }}
@@ -60,35 +65,38 @@ jobs:
         run: go test -race -coverprofile=coverage.out ./...
 
       - name: Upload coverage
+        if: always()
         uses: actions/upload-artifact@v6
         with:
           name: go-coverage-${{ matrix.slug }}
           path: ${{ matrix.module }}/coverage.out
 
   lint:
-    name: Lint Go
+    name: Lint (${{ matrix.slug }})
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - module: mgmt-daemon
+            slug: mgmt-daemon
+          - module: server
+            slug: server
+          - module: hwip/accel/server
+            slug: hwip-accel-server
+
     steps:
       - uses: actions/checkout@v5
+
       - uses: actions/setup-go@v6
         with:
-          go-version: '1.26'
+          go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: |
-            mgmt-daemon/go.sum
-            server/go.sum
+            ${{ matrix.module }}/go.sum
             gen/go/go.sum
-      - name: golangci-lint (mgmt-daemon)
-        uses: golangci/golangci-lint-action@v9
+            gen/hwip/accel/go/go.sum
+
+      - uses: golangci/golangci-lint-action@v9
         with:
-          working-directory: mgmt-daemon
-          version: v2.11.3
-      - name: golangci-lint (server)
-        uses: golangci/golangci-lint-action@v9
-        with:
-          working-directory: server
-          version: v2.11.3
-      - name: golangci-lint (hwip/accel/server)
-        uses: golangci/golangci-lint-action@v9
-        with:
-          working-directory: hwip/accel/server
-          version: v2.11.3
+          working-directory: ${{ matrix.module }}
+          version: ${{ env.GOLANGCI_VERSION }}

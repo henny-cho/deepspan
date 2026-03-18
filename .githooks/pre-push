@@ -7,16 +7,23 @@ set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 GO_MODULES=(mgmt-daemon server)
 
+# Resolve golangci-lint: check PATH first, then $GOPATH/bin fallback.
+GOLANGCI_LINT="golangci-lint"
 if ! command -v golangci-lint &>/dev/null; then
-    echo "[pre-push] golangci-lint not found — skipping Go lint" >&2
-    echo "[pre-push] Install: https://golangci-lint.run/welcome/install/" >&2
-    exit 0
+    GOPATH_BIN="$(go env GOPATH 2>/dev/null)/bin"
+    if [ -x "$GOPATH_BIN/golangci-lint" ]; then
+        GOLANGCI_LINT="$GOPATH_BIN/golangci-lint"
+    else
+        echo "[pre-push] golangci-lint not found — skipping Go lint" >&2
+        echo "[pre-push] Run: ./scripts/install-hooks.sh --lint" >&2
+        exit 0
+    fi
 fi
 
 FAILED=()
 for mod in "${GO_MODULES[@]}"; do
     echo "[pre-push] Linting $mod ..."
-    if ! (cd "$REPO_ROOT/$mod" && golangci-lint run ./...); then
+    if ! (cd "$REPO_ROOT/$mod" && "$GOLANGCI_LINT" run ./...); then
         FAILED+=("$mod")
     fi
 done

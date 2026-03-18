@@ -18,6 +18,7 @@ jobs:
     name: Test Python SDK
     runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         python-version: ['3.11', '3.12']
 
@@ -41,7 +42,7 @@ jobs:
         run: uv run pytest --tb=short -v
 
       - name: Upload coverage
-        if: matrix.python-version == '3.12'
+        if: always() && matrix.python-version == '3.12'
         uses: actions/upload-artifact@v6
         with:
           name: python-coverage
