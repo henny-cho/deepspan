@@ -29,23 +29,17 @@ func main() {
 	slog.SetDefault(logger)
 
 	// OpenAMP transport
-	var transport *openamp.Transport
-	var err error
+	var transport openamp.Transporter
 	if *sim {
-		slog.Info("simulation mode: using /dev/null as rpmsg transport")
-		var f *os.File
-		f, err = os.OpenFile("/dev/null", os.O_RDWR, 0)
-		if err != nil {
-			slog.Error("failed to open /dev/null", "err", err)
-			os.Exit(1)
-		}
-		transport = openamp.NewTransportFromFile(f)
+		slog.Info("simulation mode: using SimTransport (stub responses)")
+		transport = openamp.NewSimTransport()
 	} else {
-		transport, err = openamp.NewTransport(*rpmsgDev)
+		t, err := openamp.NewTransport(*rpmsgDev)
 		if err != nil {
 			slog.Error("failed to open rpmsg transport", "err", err)
 			os.Exit(1)
 		}
+		transport = t
 	}
 	defer transport.Close()
 

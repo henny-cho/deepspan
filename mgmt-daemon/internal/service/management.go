@@ -14,10 +14,10 @@ import (
 
 // ManagementService implements deepspanv1connect.ManagementServiceHandler.
 type ManagementService struct {
-	transport *openamp.Transport
+	transport openamp.Transporter
 }
 
-func NewManagementService(t *openamp.Transport) *ManagementService {
+func NewManagementService(t openamp.Transporter) *ManagementService {
 	return &ManagementService{transport: t}
 }
 
