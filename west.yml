@@ -1,5 +1,5 @@
 manifest:
-  version: "0.13"
+  version: "1.2"
 
   remotes:
     - name: zephyrproject
@@ -37,7 +37,7 @@ manifest:
     - name: cib
       remote: github
       repo-path: intel/compile-time-init-build
-      revision: v1.2.0
+      revision: v1.7.0
       path: modules/lib/cib
       groups:
         - firmware
@@ -49,14 +49,6 @@ manifest:
       path: modules/lib/openamp
       groups:
         - firmware
-
-  groups:
-    - name: firmware
-      projects: [etl, cib, openamp]
-    - name: userspace
-      projects: []
-    - name: ci-only
-      projects: []
 
   self:
     path: deepspan
