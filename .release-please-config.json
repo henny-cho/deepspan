@@ -34,6 +34,16 @@
     "deepspan/sdk": {
       "component": "sdk",
       "release-type": "python"
+    },
+    "hwip/accel": {
+      "component": "hwip-accel",
+      "release-type": "simple",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "hwip/codec": {
+      "component": "hwip-codec",
+      "release-type": "simple",
+      "changelog-path": "CHANGELOG.md"
     }
   },
   "separate-pull-requests": true

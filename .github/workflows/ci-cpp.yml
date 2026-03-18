@@ -10,6 +10,7 @@ on:
       - 'userlib/**'
       - 'appframework/**'
       - 'kernel/include/**'
+      - 'hwip/**'
       - 'CMakePresets.json'
       - '.github/workflows/ci-cpp.yml'
   pull_request:
@@ -19,15 +20,21 @@ on:
       - 'userlib/**'
       - 'appframework/**'
       - 'kernel/include/**'
+      - 'hwip/**'
       - 'CMakePresets.json'
 
 jobs:
   build-and-test:
-    name: Build & Test (C++)
+    name: Build & Test (${{ matrix.hwip }}, ${{ matrix.preset }})
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        preset: [dev, dev-submodule]
+        hwip: [accel, codec]
+        preset: [dev]
+        include:
+          # dev-submodule only runs for accel (reference hwip type)
+          - hwip: accel
+            preset: dev-submodule
 
     steps:
       - uses: actions/checkout@v5
@@ -52,8 +59,8 @@ jobs:
         if: matrix.preset == 'dev'
         run: conan profile detect --force
 
-      - name: Configure CMake (${{ matrix.preset }})
-        run: cmake --preset ${{ matrix.preset }}
+      - name: Configure CMake (${{ matrix.hwip }}, ${{ matrix.preset }})
+        run: cmake --preset ${{ matrix.preset }} -DDEEEPSPAN_HWIP_TYPE=${{ matrix.hwip }}
 
       - name: Build
         run: cmake --build --preset ${{ matrix.preset }} -j$(nproc)
@@ -65,5 +72,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: cpp-test-results-${{ matrix.preset }}
+          name: cpp-test-results-${{ matrix.hwip }}-${{ matrix.preset }}
           path: build/${{ matrix.preset }}/Testing/

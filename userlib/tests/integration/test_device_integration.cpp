@@ -17,6 +17,7 @@
 #include "deepspan/userlib/error.hpp"
 
 #include <linux/deepspan.h>
+#include <linux/deepspan_accel.h>  // DEEPSPAN_ACCEL_OP_*
 
 namespace deepspan::userlib {
 
@@ -78,7 +79,7 @@ TEST(AsyncClientIntegration, SubmitNoopAndWait) {
 
     // Send an ECHO (opcode 1) and wait for the completion.
     deepspan_req req{};
-    req.opcode = DEEPSPAN_OP_ECHO;
+    req.opcode = DEEPSPAN_ACCEL_OP_ECHO;
 
     auto result = client->submit_and_wait(req);
     ASSERT_TRUE(result.has_value()) << "submit_and_wait failed: "

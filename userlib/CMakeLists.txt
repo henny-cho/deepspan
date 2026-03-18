@@ -46,13 +46,16 @@ add_library(deepspan-userlib STATIC
     src/error.cpp
 )
 
+set(DEEPSPAN_KERNEL_UAPI_DIR "${PROJECT_SOURCE_DIR}/../kernel/include/uapi"
+    CACHE PATH "Kernel UAPI header directory (provides <linux/deepspan.h>)")
+
 target_include_directories(deepspan-userlib
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
     PRIVATE
         # Expose the kernel UAPI headers as <linux/deepspan.h>
-        ${PROJECT_SOURCE_DIR}/../kernel/include/uapi
+        ${DEEPSPAN_KERNEL_UAPI_DIR}
 )
 
 target_link_libraries(deepspan-userlib

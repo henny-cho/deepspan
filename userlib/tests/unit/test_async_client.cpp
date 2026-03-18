@@ -12,7 +12,8 @@
 #include "deepspan/userlib/error.hpp"
 
 // UAPI types and opcode constants.
-#include <linux/deepspan.h> // NOLINT(hicpp-deprecated-headers)
+#include <linux/deepspan.h>        // NOLINT(hicpp-deprecated-headers)
+#include <linux/deepspan_accel.h>  // DEEPSPAN_ACCEL_OP_*
 
 namespace deepspan::userlib {
 
@@ -80,7 +81,7 @@ TEST(AsyncClient, CreateFailsWithoutDevice) {  // NOLINT
 }
 
 // ---------------------------------------------------------------------------
-// TEST: submit DEEPSPAN_OP_ECHO on a real device and verify status == 0
+// TEST: submit DEEPSPAN_ACCEL_OP_ECHO on a real device and verify status == 0
 // ---------------------------------------------------------------------------
 
 TEST(AsyncClient, SubmitAndWaitOnRealDevice) {  // NOLINT
@@ -97,7 +98,7 @@ TEST(AsyncClient, SubmitAndWaitOnRealDevice) {  // NOLINT
         << "AsyncClient::create failed: " << to_string(client_result.error());
 
     deepspan_req req{};
-    req.opcode     = DEEPSPAN_OP_ECHO;
+    req.opcode     = DEEPSPAN_ACCEL_OP_ECHO;
     req.flags      = 0;
     req.data_ptr   = 0;
     req.data_len   = 0;

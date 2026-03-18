@@ -2,6 +2,8 @@ go 1.26.1
 
 use (
 	./gen/go
+	./gen/hwip/accel/go
+	./hwip/accel/server
 	./mgmt-daemon
 	./server
 )

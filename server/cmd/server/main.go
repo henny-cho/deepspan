@@ -30,6 +30,7 @@ func main() {
 	mgmtAddr := flag.String("mgmt-addr", "localhost:8081", "mgmt-daemon address")
 	shmName := flag.String("shm-name", "deepspan-sim", "hw-model POSIX shm name (without /dev/shm/ prefix)")
 	deviceFlag := flag.String("device", "", "comma-separated /dev/hwipN paths for CGo/production mode (empty = shm simulation)")
+	hwipType := flag.String("hwip-type", "accel", "hwip plugin type (accel|codec|crypto); must match a registered plugin")
 	flag.Parse()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
@@ -44,7 +45,7 @@ func main() {
 	if *deviceFlag != "" {
 		devicePaths = splitCSV(*deviceFlag)
 	}
-	hwipSvc, err := makeHwipService(*shmName, devicePaths)
+	hwipSvc, err := makeHwipService(*hwipType, *shmName, devicePaths)
 	if err != nil {
 		slog.Error("failed to initialise hwip backend", "err", err)
 		os.Exit(1)
