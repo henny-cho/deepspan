@@ -115,9 +115,10 @@ fi
 # ── Verify binaries exist ─────────────────────────────────────────────────────
 BIN_DIR="${DEEPSPAN_ROOT}/build/bin"
 HW_MODEL_BIN="${DEEPSPAN_ROOT}/hw-model/build/deepspan-hw-model"
+FW_SIM_BIN="${DEEPSPAN_ROOT}/hw-model/build/deepspan-firmware-sim"
 MGMT_BIN="${BIN_DIR}/mgmt-daemon"
 SERVER_BIN="${BIN_DIR}/deepspan-server"
-FIRMWARE_BIN="${DEEPSPAN_ROOT}/build/firmware/app/zephyr/zephyr.exe"
+ZEPHYR_BIN="${DEEPSPAN_ROOT}/build/firmware/app/zephyr/zephyr.exe"
 
 [[ -f "${MGMT_BIN}"   ]] || fail "mgmt-daemon binary not found: ${MGMT_BIN}"
 [[ -f "${SERVER_BIN}" ]] || fail "server binary not found: ${SERVER_BIN}"
@@ -125,7 +126,7 @@ FIRMWARE_BIN="${DEEPSPAN_ROOT}/build/firmware/app/zephyr/zephyr.exe"
 # ── Start hw-model ────────────────────────────────────────────────────────────
 if [[ -f "${HW_MODEL_BIN}" ]]; then
     log "starting hw-model (shm: ${HW_MODEL_SHM})..."
-    "${HW_MODEL_BIN}" --shm-name "${HW_MODEL_SHM}" \
+    "${HW_MODEL_BIN}" "--shm-name=/${HW_MODEL_SHM}" \
         >"${DEEPSPAN_ROOT}/build/logs/hw-model.log" 2>&1 &
     PIDS+=($!)
     sleep 0.3
@@ -134,17 +135,27 @@ else
     warn "hw-model binary not found — skipping"
 fi
 
-# ── Start Zephyr firmware (native_sim) ────────────────────────────────────────
-if [[ -f "${FIRMWARE_BIN}" ]]; then
+# ── Start firmware_sim (hw-model ↔ firmware interaction demo) ─────────────────
+if [[ -f "${FW_SIM_BIN}" ]]; then
+    log "starting firmware_sim (shm: ${HW_MODEL_SHM})..."
+    "${FW_SIM_BIN}" "--shm-name=/${HW_MODEL_SHM}" --interval-ms=1000 \
+        >"${DEEPSPAN_ROOT}/build/logs/firmware-sim.log" 2>&1 &
+    PIDS+=($!)
+    sleep 0.2
+    ok "firmware_sim started (pid ${PIDS[-1]})"
+else
+    warn "firmware_sim binary not found — skipping hw-model interaction demo"
+    warn "  (run: cmake --build hw-model/build to build deepspan-firmware-sim)"
+fi
+
+# ── Start Zephyr native_sim firmware (optional, requires west build) ──────────
+if [[ -f "${ZEPHYR_BIN}" ]]; then
     log "starting Zephyr native_sim firmware..."
-    "${FIRMWARE_BIN}" \
-        >"${DEEPSPAN_ROOT}/build/logs/firmware.log" 2>&1 &
+    "${ZEPHYR_BIN}" \
+        >"${DEEPSPAN_ROOT}/build/logs/zephyr.log" 2>&1 &
     PIDS+=($!)
     sleep 0.3
-    ok "firmware started (pid ${PIDS[-1]})"
-else
-    warn "firmware binary not found at ${FIRMWARE_BIN} — skipping"
-    warn "  (run: west build -b native_sim/native/64 firmware/app --build-dir build/firmware/app)"
+    ok "Zephyr firmware started (pid ${PIDS[-1]})"
 fi
 
 # ── Start mgmt-daemon ─────────────────────────────────────────────────────────
@@ -158,7 +169,7 @@ ok "mgmt-daemon started (pid ${PIDS[-1]})"
 
 # ── Start server ──────────────────────────────────────────────────────────────
 log "starting server (addr ${SERVER_ADDR})..."
-"${SERVER_BIN}" --addr "${SERVER_ADDR}" --mgmt-addr "localhost${MGMT_ADDR}" \
+"${SERVER_BIN}" --addr "${SERVER_ADDR}" --mgmt-addr "localhost${MGMT_ADDR}" --shm-name "${HW_MODEL_SHM}" \
     >"${DEEPSPAN_ROOT}/build/logs/server.log" 2>&1 &
 PIDS+=($!)
 ok "server started (pid ${PIDS[-1]})"
