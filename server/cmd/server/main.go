@@ -38,7 +38,7 @@ func main() {
 	// Register all services — ConnectRPC: gRPC + gRPC-Web + REST on same port
 	intercept := connect.WithInterceptors(loggingInterceptor(logger))
 
-	hwipSvc := hwip.NewService()
+	hwipSvc := hwip.NewService(*shmName)
 	path, handler := deepspanv1connect.NewHwipServiceHandler(hwipSvc, intercept)
 	mux.Handle(path, handler)
 

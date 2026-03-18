@@ -20,7 +20,7 @@ import (
 func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
-	path, handler := deepspanv1connect.NewHwipServiceHandler(hwip.NewService())
+	path, handler := deepspanv1connect.NewHwipServiceHandler(hwip.NewService(""))
 	mux.Handle(path, handler)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)

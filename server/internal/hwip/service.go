@@ -3,26 +3,32 @@ package hwip
 
 import (
 	"context"
+	"encoding/binary"
 	"log/slog"
+	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	deepspanv1 "github.com/myorg/deepspan/gen/go/deepspan/v1"
 )
 
 // Service implements deepspanv1connect.HwipServiceHandler.
 type Service struct {
-	// TODO: inject DevicePool / AsyncClient once userlib CGo bridge is ready
+	shm *ShmClient
 }
 
-func NewService() *Service { return &Service{} }
+// NewService creates a Service. Pass shmName="" to disable real shm access
+// (unit-test / no-hardware mode).
+func NewService(shmName string) *Service {
+	return &Service{shm: newShmClient(shmName)}
+}
 
 func (s *Service) ListDevices(
 	ctx context.Context,
 	req *connect.Request[deepspanv1.ListDevicesRequest],
 ) (*connect.Response[deepspanv1.ListDevicesResponse], error) {
 	slog.DebugContext(ctx, "ListDevices")
-	// Stub: return single simulated device
 	return connect.NewResponse(&deepspanv1.ListDevicesResponse{
 		Devices: []*deepspanv1.DeviceInfo{{
 			DeviceId:   "hwip0",
@@ -49,10 +55,46 @@ func (s *Service) SubmitRequest(
 	ctx context.Context,
 	req *connect.Request[deepspanv1.SubmitRequestRequest],
 ) (*connect.Response[deepspanv1.SubmitRequestResponse], error) {
-	slog.DebugContext(ctx, "SubmitRequest", "device_id", req.Msg.DeviceId, "opcode", req.Msg.Opcode)
+	slog.DebugContext(ctx, "SubmitRequest",
+		"device_id", req.Msg.DeviceId,
+		"opcode", req.Msg.Opcode,
+	)
+
+	// Parse arg0/arg1 from the first 8 bytes of payload (little-endian).
+	var arg0, arg1 uint32
+	if len(req.Msg.Payload) >= 4 {
+		arg0 = binary.LittleEndian.Uint32(req.Msg.Payload[:4])
+	}
+	if len(req.Msg.Payload) >= 8 {
+		arg1 = binary.LittleEndian.Uint32(req.Msg.Payload[4:8])
+	}
+
+	start := time.Now()
+	rstatus, rdata0, rdata1, err := s.shm.SubmitCmd(req.Msg.Opcode, arg0, arg1, req.Msg.TimeoutMs)
+	elapsed := time.Since(start)
+
+	if err != nil {
+		slog.WarnContext(ctx, "SubmitCmd error", "err", err)
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Pack result_data0 + result_data1 as 8-byte little-endian result payload.
+	result := make([]byte, 8)
+	binary.LittleEndian.PutUint32(result[:4], rdata0)
+	binary.LittleEndian.PutUint32(result[4:], rdata1)
+
+	slog.InfoContext(ctx, "SubmitCmd ok",
+		"opcode", req.Msg.Opcode,
+		"result_status", rstatus,
+		"result_data0", rdata0,
+		"latency_ms", elapsed.Milliseconds(),
+	)
+
 	return connect.NewResponse(&deepspanv1.SubmitRequestResponse{
-		RequestId: req.Msg.Opcode, // echo opcode as stub request_id
-		Status:    0,
+		RequestId: req.Msg.Opcode,
+		Status:    rstatus,
+		Result:    result,
+		Latency:   durationpb.New(elapsed),
 	}), nil
 }
 
@@ -62,7 +104,6 @@ func (s *Service) StreamEvents(
 	stream *connect.ServerStream[deepspanv1.DeviceEvent],
 ) error {
 	slog.DebugContext(ctx, "StreamEvents", "device_id", req.Msg.DeviceId)
-	// Block until context cancelled — real impl would push events from kernel driver
 	<-ctx.Done()
 	return nil
 }

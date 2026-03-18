@@ -12,7 +12,7 @@ import (
 )
 
 func TestListDevices(t *testing.T) {
-	svc := hwip.NewService()
+	svc := hwip.NewService("")
 	resp, err := svc.ListDevices(context.Background(),
 		connect.NewRequest(&deepspanv1.ListDevicesRequest{}),
 	)
@@ -25,7 +25,7 @@ func TestListDevices(t *testing.T) {
 }
 
 func TestGetDeviceStatus(t *testing.T) {
-	svc := hwip.NewService()
+	svc := hwip.NewService("")
 	resp, err := svc.GetDeviceStatus(context.Background(),
 		connect.NewRequest(&deepspanv1.GetDeviceStatusRequest{DeviceId: "hwip0"}),
 	)
