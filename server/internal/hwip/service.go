@@ -3,7 +3,6 @@ package hwip
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	"connectrpc.com/connect"
@@ -26,8 +25,9 @@ func (s *Service) ListDevices(
 	// Stub: return single simulated device
 	return connect.NewResponse(&deepspanv1.ListDevicesResponse{
 		Devices: []*deepspanv1.DeviceInfo{{
-			DeviceId: "hwip0",
-			State:    deepspanv1.DeviceState_READY,
+			DeviceId:   "hwip0",
+			DevicePath: "/dev/hwip0",
+			State:      deepspanv1.DeviceState_DEVICE_STATE_READY,
 		}},
 	}), nil
 }
@@ -38,8 +38,10 @@ func (s *Service) GetDeviceStatus(
 ) (*connect.Response[deepspanv1.GetDeviceStatusResponse], error) {
 	slog.DebugContext(ctx, "GetDeviceStatus", "device_id", req.Msg.DeviceId)
 	return connect.NewResponse(&deepspanv1.GetDeviceStatusResponse{
-		State:   deepspanv1.DeviceState_READY,
-		Message: "ok",
+		Info: &deepspanv1.DeviceInfo{
+			DeviceId: req.Msg.DeviceId,
+			State:    deepspanv1.DeviceState_DEVICE_STATE_READY,
+		},
 	}), nil
 }
 
@@ -49,7 +51,7 @@ func (s *Service) SubmitRequest(
 ) (*connect.Response[deepspanv1.SubmitRequestResponse], error) {
 	slog.DebugContext(ctx, "SubmitRequest", "device_id", req.Msg.DeviceId, "opcode", req.Msg.Opcode)
 	return connect.NewResponse(&deepspanv1.SubmitRequestResponse{
-		RequestId: fmt.Sprintf("req-%s-%d", req.Msg.DeviceId, req.Msg.Opcode),
+		RequestId: req.Msg.Opcode, // echo opcode as stub request_id
 		Status:    0,
 	}), nil
 }

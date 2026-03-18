@@ -32,7 +32,10 @@ func TestGetDeviceStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDeviceStatus error: %v", err)
 	}
-	if resp.Msg.State == deepspanv1.DeviceState_DEVICE_STATE_UNSPECIFIED {
+	if resp.Msg.Info == nil {
+		t.Fatal("expected non-nil Info in response")
+	}
+	if resp.Msg.Info.State == deepspanv1.DeviceState_DEVICE_STATE_UNSPECIFIED {
 		t.Fatal("expected a non-zero device state")
 	}
 }

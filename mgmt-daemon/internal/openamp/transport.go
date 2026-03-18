@@ -27,6 +27,12 @@ func NewTransport(path string) (*Transport, error) {
 	return &Transport{devFile: f, path: path}, nil
 }
 
+// NewTransportFromFile creates a Transport backed by an already-open file.
+// Intended for testing (os.Pipe) and simulation (named pipe / Unix socket).
+func NewTransportFromFile(f *os.File) *Transport {
+	return &Transport{devFile: f, path: f.Name()}
+}
+
 func (t *Transport) Close() error {
 	t.mu.Lock()
 	defer t.mu.Unlock()

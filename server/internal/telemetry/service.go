@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	deepspanv1 "github.com/myorg/deepspan/gen/go/deepspan/v1"
 )
@@ -23,8 +24,8 @@ func (s *Service) GetTelemetry(
 	slog.DebugContext(ctx, "GetTelemetry", "device_id", req.Msg.DeviceId)
 	return connect.NewResponse(&deepspanv1.GetTelemetryResponse{
 		Snapshot: &deepspanv1.TelemetrySnapshot{
-			DeviceId:    req.Msg.DeviceId,
-			TimestampMs: uint64(time.Now().UnixMilli()),
+			DeviceId:  req.Msg.DeviceId,
+			Timestamp: timestamppb.New(time.Now()),
 		},
 	}), nil
 }
@@ -43,8 +44,8 @@ func (s *Service) StreamTelemetry(
 			return nil
 		case t := <-ticker.C:
 			if err := stream.Send(&deepspanv1.TelemetrySnapshot{
-				DeviceId:    req.Msg.DeviceId,
-				TimestampMs: uint64(t.UnixMilli()),
+				DeviceId:  req.Msg.DeviceId,
+				Timestamp: timestamppb.New(t),
 			}); err != nil {
 				return err
 			}
