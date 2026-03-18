@@ -13,12 +13,21 @@ if ! command -v west &>/dev/null; then
     exit 1
 fi
 
-# West workspace must be initialised
-if [ ! -d "${DEEPSPAN_ROOT}/.west" ]; then
+# Find west workspace root by walking up (same algorithm as west itself)
+find_west_root() {
+    local dir="$1"
+    while [[ "$dir" != "/" ]]; do
+        [[ -d "$dir/.west" ]] && echo "$dir" && return 0
+        dir="$(dirname "$dir")"
+    done
+    return 1
+}
+
+WEST_TOPDIR="$(find_west_root "${DEEPSPAN_ROOT}")" || {
     echo "ERROR: west workspace not initialised. Run:" >&2
-    echo "  cd ${DEEPSPAN_ROOT} && west init -l . && west update" >&2
+    echo "  cd <workspace-parent> && west init -l deepspan && west update" >&2
     exit 1
-fi
+}
 
 cd "${DEEPSPAN_ROOT}"
 
