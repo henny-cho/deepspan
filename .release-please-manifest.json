@@ -6,5 +6,6 @@
   "deepspan/appframework": "0.1.0",
   "deepspan/mgmt-daemon": "0.1.0",
   "deepspan/server": "0.1.0",
-  "deepspan/sdk": "0.1.0"
+  "deepspan/sdk": "0.1.0",
+  "hwip/accel": "1.0.0"
 }
