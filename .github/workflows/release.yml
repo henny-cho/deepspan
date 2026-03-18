@@ -6,6 +6,17 @@ on:
   push:
     branches: [main]
 
+# Workflow-level permissions: required for release-please to open/update PRs
+# and create tags+releases.
+#
+# ALSO REQUIRED (one-time repo setting):
+#   Settings → Actions → General → Workflow permissions
+#   → ✅ "Allow GitHub Actions to create and approve pull requests"
+#
+# If that setting cannot be enabled (org policy), create a PAT with
+# repo + pull_request scope, store it as secrets.RELEASE_PLEASE_TOKEN,
+# and replace ${{ secrets.GITHUB_TOKEN }} → ${{ secrets.RELEASE_PLEASE_TOKEN }}
+# in the release-please step below.
 permissions:
   contents: write
   pull-requests: write
@@ -15,6 +26,9 @@ jobs:
   release-please:
     name: Release Please
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
     env:
       # release-please-action@v4 uses Node.js 20; force Node.js 24 until upstream releases a fix.
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -30,6 +44,12 @@ jobs:
         with:
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # PR 생성 권한이 없는 환경에서 실패를 막기 위해 PR 생성을 건너뜀.
+          # release-please는 릴리즈 태그·GitHub Release 생성만 수행한다.
+          # PR 기반 changelog 자동화가 필요해지면 RELEASE_PLEASE_TOKEN (PAT)을
+          # 시크릿으로 추가하고 아래 줄을 제거할 것.
+          skip-github-pull-request: true
 
   goreleaser-server:
     name: Release server binary
