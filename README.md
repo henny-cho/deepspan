@@ -85,6 +85,21 @@ buf generate        # Protobuf → Go 코드 생성
 go build -o bin/deepspan-server ./cmd/server/
 ```
 
+### 전체 스택 한번에 검증
+
+```bash
+cd deepspan/
+
+# 모든 레이어 순서대로 빌드 + 테스트
+./scripts/verify-build.sh
+
+# 특정 레이어만
+./scripts/verify-build.sh --layers userlib,appframework,server
+
+# 느린 레이어 제외
+./scripts/verify-build.sh --skip kernel,firmware
+```
+
 ---
 
 ## 디렉터리 구조
@@ -136,7 +151,26 @@ deepspan/
 
 | 워크플로우 | 트리거 | 내용 |
 |-----------|--------|------|
-| `ci-firmware.yml` | `firmware/**`, `west.yml` push/PR | native_sim 빌드 + twister 테스트 |
+| `ci-firmware.yml` | `firmware/**`, `west.yml` | native_sim 빌드 + twister 테스트 |
+| `ci-cpp.yml` | `hw-model/**`, `userlib/**`, `appframework/**` | CMake 빌드 + ctest (dev / dev-submodule 프리셋) |
+| `ci-go.yml` | `mgmt-daemon/**`, `server/**`, `gen/go/**`, `go.work` | go build + go test -race + golangci-lint |
+| `ci-kernel.yml` | `kernel/**` | out-of-tree 커널 모듈 컴파일 체크 |
+| `ci-python.yml` | `sdk/**` | uv sync + pytest |
+
+---
+
+## 스크립트
+
+| 스크립트 | 설명 |
+|---------|------|
+| `scripts/verify-build.sh` | 전체 레이어 빌드 검증 (커밋 전 sanity check) |
+| `scripts/codegen.sh` | Protobuf → Go/Python 스텁 생성 (`buf generate` 래퍼) |
+| `firmware/scripts/build.sh` | 펌웨어 빌드 + twister 테스트 |
+| `<layer>/scripts/build.sh` | 레이어별 빌드 + 단위 테스트 |
+| `<layer>/scripts/setup-dev.sh` | 레이어별 개발 환경 초기 설치 |
+| `<layer>/scripts/verify-setup.sh` | 개발 환경 설치 확인 |
+
+→ 상세 사용법: [빌드 시스템 문서](../doc/build/build-system.md#빌드-스크립트-레퍼런스)
 
 ---
 
@@ -144,11 +178,27 @@ deepspan/
 
 전체 설계 문서: [`../doc/`](../doc/README.md)
 
-- [아키텍처 개요](../doc/architecture/overview.md)
-- [시작하기](../doc/guides/getting-started.md)
-- [Zephyr 펌웨어 레이어](../doc/layers/zephyr-firmware.md)
-- [CI/CD](../doc/ops/cicd.md)
+### 시작하기
+- [시작하기 가이드](../doc/guides/getting-started.md) — 환경 설정, 레이어별 첫 빌드, 트러블슈팅
+
+### 아키텍처
+- [아키텍처 개요](../doc/architecture/overview.md) — 전체 스택 설계 철학, 계층 구조
+- [통신 프로토콜](../doc/architecture/communication-protocols.md) — MMIO/virtio/io_uring 계층 간 통신
+
+### 빌드 & 패키징
+- [빌드 시스템](../doc/build/build-system.md) — CMake Presets, West manifest, Go modules, uv, **스크립트 레퍼런스**
+- [디렉터리 구조](../doc/build/directory-structure.md) — 파일 배치 규칙
+- [패키징](../doc/build/packaging.md) — 외부 프로젝트 import 방법 (Conan / submodule)
+
+### 레이어 설계
+- [Zephyr 펌웨어](../doc/layers/zephyr-firmware.md) — ETL FSM, CIB, VirtIO transport, native_sim
+- [userlib & appframework](../doc/layers/userlib-appframework.md) — io_uring, DevicePool, CircuitBreaker, SessionManager
+- [Go 서버 & Python SDK](../doc/layers/server-client.md) — ConnectRPC, Protobuf, buf
+
+### 운영
+- [CI/CD](../doc/ops/cicd.md) — GitHub Actions 파이프라인 전략
+- [테스팅](../doc/ops/testing.md) — 3단계 테스트 전략
 
 ---
 
-> 최종 업데이트: 2026-03-18
+> 최종 업데이트: 2026-03-18 — 스크립트 레퍼런스, CI/CD 테이블, 문서 링크 추가
