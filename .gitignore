@@ -35,6 +35,7 @@ gen/python/
 # Kernel module
 *.ko
 *.mod
+!go.mod
 *.mod.c
 *.mod.o
 *.o
