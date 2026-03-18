@@ -12,7 +12,7 @@
 #include <linux/init.h>
 #include <linux/fs.h>
 #include <linux/device.h>
-#include <linux/ida.h>
+#include <linux/idr.h>	/* IDA — ida.h merged into idr.h in kernel 6.x */
 #include <linux/uaccess.h>
 
 #include "deepspan_priv.h"
@@ -48,10 +48,7 @@ static int deepspan_release(struct inode *inode, struct file *filp)
 
 static int deepspan_uring_cmd(struct io_uring_cmd *cmd, unsigned int issue_flags)
 {
-    /* Async processing: implemented in deepspan_iouring.c */
-    (void)cmd;
-    (void)issue_flags;
-    return -EIOCBQUEUED;  /* async in progress */
+    return deepspan_uring_cmd_issue(cmd, issue_flags);
 }
 
 static const struct file_operations deepspan_fops = {
@@ -59,7 +56,7 @@ static const struct file_operations deepspan_fops = {
     .open           = deepspan_open,
     .release        = deepspan_release,
     .uring_cmd      = deepspan_uring_cmd,
-    .llseek         = no_llseek,
+    .llseek         = noop_llseek,
 };
 
 /* ── cdev helpers ───────────────────────────────────────────────── */
@@ -116,16 +113,27 @@ static int __init deepspan_init(void)
 
     deepspan_class = class_create(DEEPSPAN_DRIVER_NAME);
     if (IS_ERR(deepspan_class)) {
-        unregister_chrdev_region(deepspan_devt, DEEPSPAN_MAX_DEVICES);
-        return PTR_ERR(deepspan_class);
+        ret = PTR_ERR(deepspan_class);
+        goto err_chrdev;
     }
+
+    ret = deepspan_virtio_register();
+    if (ret)
+        goto err_class;
 
     pr_info("deepspan: driver loaded (major=%d)\n", MAJOR(deepspan_devt));
     return 0;
+
+err_class:
+    class_destroy(deepspan_class);
+err_chrdev:
+    unregister_chrdev_region(deepspan_devt, DEEPSPAN_MAX_DEVICES);
+    return ret;
 }
 
 static void __exit deepspan_exit(void)
 {
+    deepspan_virtio_unregister();
     class_destroy(deepspan_class);
     unregister_chrdev_region(deepspan_devt, DEEPSPAN_MAX_DEVICES);
     ida_destroy(&deepspan_ida);

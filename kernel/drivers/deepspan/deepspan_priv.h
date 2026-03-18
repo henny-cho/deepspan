@@ -4,9 +4,10 @@
 
 #include <linux/cdev.h>
 #include <linux/virtio.h>
+#include <linux/virtio_config.h>  /* vq_callback_t, virtqueue_info, virtio_find_vqs */
 #include <linux/virtio_ring.h>
 #include <linux/xarray.h>
-#include <linux/ida.h>
+#include <linux/idr.h>	/* IDA — ida.h merged into idr.h in kernel 6.x */
 #include <linux/io_uring/cmd.h>
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
@@ -33,7 +34,8 @@
  * @dev:         sysfs device
  * @minor:       minor number allocated by IDA
  * @vq_lock:     virtqueue access spinlock
- * @tx_work:     TX completion workqueue item
+ * @tx_work:     workqueue item — drain TX VQ used buffers (firmware completions)
+ * @rx_work:     workqueue item — drain RX VQ (firmware event notifications)
  */
 struct deepspan_device {
     struct virtio_device    *vdev;
@@ -44,20 +46,25 @@ struct deepspan_device {
     int                      minor;
     spinlock_t               vq_lock;
     struct work_struct       tx_work;
+    struct work_struct       rx_work;
 };
 
 /**
  * struct deepspan_request - single io_uring request tracking structure
- * @cmd:      original io_uring_cmd (io_uring_cmd_done() called on completion)
- * @req_id:   XArray-assigned ID
- * @buf:      DMA buffer (virtio scatterlist)
- * @buf_len:  buffer size
+ * @cmd:       original io_uring_cmd (io_uring_cmd_done() called on completion)
+ * @req_id:    XArray-assigned ID
+ * @buf:       outbuf — request data sent to firmware (virtio outbuf)
+ * @buf_len:   outbuf size
+ * @resp_buf:  inbuf — firmware writes response here (virtio inbuf)
+ * @resp_len:  inbuf size (sizeof(struct deepspan_result))
  */
 struct deepspan_request {
     struct io_uring_cmd *cmd;
     u32                  req_id;
     void                *buf;
     u32                  buf_len;
+    void                *resp_buf;
+    u32                  resp_len;
 };
 
 /* Global IDA for minor number allocation */
@@ -65,9 +72,24 @@ extern struct ida deepspan_ida;
 extern struct class *deepspan_class;
 extern dev_t deepspan_devt;
 
-/* Function prototypes */
+/* Function prototypes — deepspan_main.c */
 int  deepspan_cdev_add(struct deepspan_device *ddev);
 void deepspan_cdev_del(struct deepspan_device *ddev);
-int  deepspan_iouring_register(struct deepspan_device *ddev);
+
+/* Function prototypes — deepspan_iouring.c */
+int  deepspan_uring_cmd_issue(struct io_uring_cmd *cmd, unsigned int issue_flags);
+
+/* Function prototypes — deepspan_vqueue.c */
+void deepspan_vqueue_init(struct deepspan_device *ddev,
+                          struct virtqueue_info vqs_info[VQ_COUNT]);
+void deepspan_vqueue_cleanup(struct deepspan_device *ddev);
+
+/* Function prototypes — deepspan_virtio.c */
+int  deepspan_virtio_register(void);
+void deepspan_virtio_unregister(void);
+
+/* Function prototypes — deepspan_sysfs.c */
+int  deepspan_sysfs_init(struct deepspan_device *ddev);
+void deepspan_sysfs_exit(struct deepspan_device *ddev);
 
 #endif /* _DEEPSPAN_PRIV_H */

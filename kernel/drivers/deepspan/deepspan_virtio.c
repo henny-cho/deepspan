@@ -3,8 +3,9 @@
  * deepspan_virtio.c - virtio driver probe/remove
  *
  * Linux is virtio master (driver), Zephyr is virtio slave (device).
- * probe: virtqueue setup, cdev registration
- * remove: cdev release, XArray cleanup
+ * probe: virtqueue setup (callbacks wired by deepspan_vqueue_init),
+ *        cdev registration, sysfs init
+ * remove: workqueue flush, cdev release, XArray cleanup
  */
 
 #include <linux/module.h>
@@ -18,8 +19,7 @@ static int deepspan_virtio_probe(struct virtio_device *vdev)
 {
     struct deepspan_device *ddev;
     struct virtqueue *vqs[VQ_COUNT];
-    vq_callback_t *cbs[VQ_COUNT] = { NULL, NULL };  /* set in vqueue.c */
-    const char *names[VQ_COUNT]  = { "tx", "rx" };
+    struct virtqueue_info vqs_info[VQ_COUNT] = {};
     int ret;
 
     ddev = kzalloc(sizeof(*ddev), GFP_KERNEL);
@@ -30,10 +30,12 @@ static int deepspan_virtio_probe(struct virtio_device *vdev)
     vdev->priv = ddev;
     spin_lock_init(&ddev->vq_lock);
     xa_init(&ddev->pending);
-    INIT_WORK(&ddev->tx_work, NULL);  /* set in iouring.c */
 
-    /* Allocate virtqueues */
-    ret = virtio_find_vqs(vdev, VQ_COUNT, vqs, cbs, names, NULL);
+    /* Wire VQ callbacks and initialise workqueue items */
+    deepspan_vqueue_init(ddev, vqs_info);
+
+    /* Allocate virtqueues with callbacks */
+    ret = virtio_find_vqs(vdev, VQ_COUNT, vqs, vqs_info, NULL);
     if (ret)
         goto err_free;
 
@@ -45,6 +47,12 @@ static int deepspan_virtio_probe(struct virtio_device *vdev)
     ret = deepspan_cdev_add(ddev);
     if (ret)
         goto err_vqs;
+
+    ret = deepspan_sysfs_init(ddev);
+    if (ret) {
+        /* Non-fatal: sysfs failure does not prevent device operation */
+        dev_warn(ddev->dev, "sysfs init failed (%d), continuing\n", ret);
+    }
 
     dev_info(ddev->dev, "deepspan: hwip%d probed\n", ddev->minor);
     return 0;
@@ -61,6 +69,8 @@ static void deepspan_virtio_remove(struct virtio_device *vdev)
 {
     struct deepspan_device *ddev = vdev->priv;
 
+    deepspan_sysfs_exit(ddev);
+    deepspan_vqueue_cleanup(ddev);
     deepspan_cdev_del(ddev);
     vdev->config->reset(vdev);
     vdev->config->del_vqs(vdev);
@@ -82,7 +92,6 @@ static struct virtio_driver deepspan_virtio_driver = {
     .remove         = deepspan_virtio_remove,
 };
 
-/* Called from module_init in deepspan_main.c */
 int deepspan_virtio_register(void)
 {
     return register_virtio_driver(&deepspan_virtio_driver);
