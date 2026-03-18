@@ -1,0 +1,105 @@
+// SPDX-License-Identifier: Apache-2.0
+syntax = "proto3";
+
+// Package deepspan_accel.v1 defines the HWIP service for the acceleration HWIP type.
+// This is the accel-specific specialisation of the generic deepspan device API.
+package deepspan_accel.v1;
+
+import "google/protobuf/duration.proto";
+
+option go_package = "github.com/myorg/deepspan/gen/hwip/accel/go/deepspan_accel/v1;deepspan_accelv1";
+
+// HwipService provides control over acceleration HWIP devices.
+service HwipService {
+  // ListDevices returns the available accel HWIP devices.
+  rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse);
+
+  // GetDeviceStatus returns current status and metrics for a device.
+  rpc GetDeviceStatus(GetDeviceStatusRequest) returns (GetDeviceStatusResponse);
+
+  // SubmitRequest submits an accel command (ECHO, PROCESS, STATUS) asynchronously
+  // via io_uring and returns when the command completes.
+  rpc SubmitRequest(SubmitRequestRequest) returns (SubmitRequestResponse);
+
+  // StreamEvents streams real-time device events (state changes, errors, telemetry).
+  rpc StreamEvents(StreamEventsRequest) returns (stream DeviceEvent);
+}
+
+// ─── Request/Response Messages ───────────────────────────────────────────────
+
+message ListDevicesRequest {}
+
+message ListDevicesResponse {
+  repeated DeviceInfo devices = 1;
+}
+
+message GetDeviceStatusRequest {
+  string device_id = 1;
+}
+
+message GetDeviceStatusResponse {
+  DeviceInfo info    = 1;
+  DeviceMetrics metrics = 2;
+}
+
+// SubmitRequestRequest uses accel-specific opcodes (ECHO=0x1, PROCESS=0x2, STATUS=0x3).
+message SubmitRequestRequest {
+  string device_id  = 1;
+  uint32 opcode     = 2;  // AccelOp: ECHO=0x0001, PROCESS=0x0002, STATUS=0x0003
+  bytes  payload    = 3;  // first 4 bytes = arg0, next 4 bytes = arg1 (little-endian)
+  uint32 timeout_ms = 4;  // 0 = server default (5000 ms)
+}
+
+message SubmitRequestResponse {
+  uint32   request_id = 1;  // echoes opcode
+  int32    status     = 2;  // 0 = success, negative = errno
+  bytes    result     = 3;  // result_data0 ++ result_data1 (8 bytes, little-endian)
+  google.protobuf.Duration latency = 4;
+}
+
+message StreamEventsRequest {
+  string device_id = 1;
+}
+
+// ─── Common Messages ──────────────────────────────────────────────────────────
+
+message DeviceInfo {
+  string      device_id    = 1;
+  string      device_path  = 2;
+  DeviceState state        = 3;
+  uint32      uapi_version = 4;
+  string      fw_version   = 5;
+}
+
+message DeviceMetrics {
+  uint64 requests_total  = 1;
+  uint64 requests_failed = 2;
+  uint64 bytes_sent      = 3;
+  uint64 bytes_received  = 4;
+  double avg_latency_ms  = 5;
+}
+
+message DeviceEvent {
+  string    device_id  = 1;
+  EventType event_type = 2;
+  string    message    = 3;
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum DeviceState {
+  DEVICE_STATE_UNSPECIFIED  = 0;
+  DEVICE_STATE_INITIALIZING = 1;
+  DEVICE_STATE_READY        = 2;
+  DEVICE_STATE_RUNNING      = 3;
+  DEVICE_STATE_ERROR        = 4;
+  DEVICE_STATE_RESETTING    = 5;
+}
+
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED  = 0;
+  EVENT_TYPE_STATE_CHANGE = 1;
+  EVENT_TYPE_ERROR        = 2;
+  EVENT_TYPE_TELEMETRY    = 3;
+  EVENT_TYPE_FW_LOG       = 4;
+}

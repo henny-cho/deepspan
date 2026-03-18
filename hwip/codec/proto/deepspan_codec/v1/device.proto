@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: Apache-2.0
+// Skeleton: codec HWIP service definition.
+// Copy from hwip/accel/proto/deepspan_accel/v1/device.proto and customise.
+syntax = "proto3";
+
+package deepspan_codec.v1;
+
+import "google/protobuf/duration.proto";
+
+option go_package = "github.com/myorg/deepspan/gen/hwip/codec/go/deepspan_codec/v1;deepspan_codecv1";
+
+// HwipService provides control over codec HWIP devices.
+service HwipService {
+  rpc ListDevices(ListDevicesRequest)       returns (ListDevicesResponse);
+  rpc GetDeviceStatus(GetDeviceStatusRequest) returns (GetDeviceStatusResponse);
+  rpc SubmitRequest(SubmitRequestRequest)   returns (SubmitRequestResponse);
+  rpc StreamEvents(StreamEventsRequest)     returns (stream DeviceEvent);
+}
+
+message ListDevicesRequest {}
+message ListDevicesResponse { repeated DeviceInfo devices = 1; }
+
+message GetDeviceStatusRequest  { string device_id = 1; }
+message GetDeviceStatusResponse { DeviceInfo info = 1; }
+
+// Codec opcodes: ENCODE=0x0001, DECODE=0x0002, STATUS=0x0003
+message SubmitRequestRequest {
+  string device_id  = 1;
+  uint32 opcode     = 2;
+  bytes  payload    = 3;
+  uint32 timeout_ms = 4;
+}
+message SubmitRequestResponse {
+  uint32 request_id = 1;
+  int32  status     = 2;
+  bytes  result     = 3;
+  google.protobuf.Duration latency = 4;
+}
+
+message StreamEventsRequest { string device_id = 1; }
+message DeviceInfo          { string device_id = 1; string device_path = 2; }
+message DeviceEvent         { string device_id = 1; string message = 2; }

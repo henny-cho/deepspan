@@ -52,3 +52,16 @@ manifest:
 
   self:
     path: deepspan
+    # ── HWIP firmware plugins ──────────────────────────────────────────────────
+    # Each hwip/<type>/firmware/ directory is a standalone Zephyr module.
+    # To build firmware for a specific hwip type, set ZEPHYR_EXTRA_MODULES:
+    #
+    #   west build -b native_sim firmware/app \
+    #     -- -DZEPHYR_EXTRA_MODULES=$(pwd)/hwip/accel/firmware
+    #
+    # For codec hwip:
+    #   west build -b native_sim firmware/app \
+    #     -- -DZEPHYR_EXTRA_MODULES=$(pwd)/hwip/codec/firmware
+    #
+    # The base firmware/drivers/deepspan/ provides the generic VirtIO transport.
+    # hwip/<type>/firmware/drivers/deepspan_<type>/ adds the type-specific driver.

@@ -9,6 +9,10 @@ option(DEEPSPAN_BUILD_FIRMWARE    "Build Zephyr firmware (West)" OFF)
 option(DEEPSPAN_BUILD_KERNEL      "Build Linux kernel module"    OFF)
 option(DEEPSPAN_BUILD_TESTS       "Build tests"                  ON)
 
+set(DEEPSPAN_HWIP_TYPE "accel" CACHE STRING
+    "HWIP plugin type to build (accel|codec|crypto). Controls which hwip/<type>/ subdirectory is included.")
+set_property(CACHE DEEPSPAN_HWIP_TYPE PROPERTY STRINGS accel codec crypto)
+
 if(DEEPSPAN_BUILD_TESTS)
     enable_testing()
 endif()
@@ -47,6 +51,14 @@ endif()
 
 if(DEEPSPAN_BUILD_APPFRAMEWORK)
     add_subdirectory(appframework)
+endif()
+
+# ── HWIP plugin ───────────────────────────────────────────────────────
+if(EXISTS "${CMAKE_SOURCE_DIR}/hwip/${DEEPSPAN_HWIP_TYPE}/CMakeLists.txt")
+    add_subdirectory(hwip/${DEEPSPAN_HWIP_TYPE})
+else()
+    message(WARNING "hwip/${DEEPSPAN_HWIP_TYPE}/CMakeLists.txt not found; "
+                    "set DEEPSPAN_HWIP_TYPE to an existing plugin (accel, codec, ...)")
 endif()
 
 if(DEEPSPAN_BUILD_KERNEL)

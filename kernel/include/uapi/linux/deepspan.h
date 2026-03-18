@@ -22,7 +22,7 @@
 
 /**
  * struct deepspan_req - io_uring command request structure
- * @opcode:     command type (DEEPSPAN_OP_*)
+ * @opcode:     command type — hwip-specific (e.g. DEEPSPAN_ACCEL_OP_* from <linux/deepspan_accel.h>)
  * @flags:      request flags
  * @data_ptr:   userspace data buffer pointer
  * @data_len:   data buffer size (bytes)
@@ -49,10 +49,12 @@ struct deepspan_result {
     __u32 _pad;
 };
 
-/* Command opcodes */
-#define DEEPSPAN_OP_ECHO    0x0001  /* echo (for testing) */
-#define DEEPSPAN_OP_PROCESS 0x0002  /* data processing */
-#define DEEPSPAN_OP_STATUS  0x0003  /* device status query */
+/*
+ * Command opcodes are hwip-type specific.
+ * Include the appropriate hwip header for opcode definitions:
+ *   #include <linux/deepspan_accel.h>   -- acceleration HWIP
+ *   #include <linux/deepspan_codec.h>   -- codec HWIP
+ */
 
 /* ioctl: query UAPI version */
 #define DEEPSPAN_IOC_GET_VERSION  _IOR(DEEPSPAN_IOC_MAGIC, 1, __u32)
