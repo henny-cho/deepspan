@@ -31,6 +31,7 @@ include(GoogleTest)
 add_executable(deepspan-userlib-tests
     unit/test_device.cpp
     unit/test_async_client.cpp
+    integration/test_device_integration.cpp
 )
 
 target_link_libraries(deepspan-userlib-tests
