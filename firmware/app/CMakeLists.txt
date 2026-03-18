@@ -12,4 +12,9 @@ target_sources(app PRIVATE
 target_include_directories(app PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../lib/transport/include
     ${CMAKE_CURRENT_SOURCE_DIR}/../lib/components
+    ${WEST_TOPDIR}/modules/lib/etl/include
 )
+
+if(CONFIG_DEEPSPAN_USE_CIB)
+  target_include_directories(app PRIVATE ${WEST_TOPDIR}/modules/lib/cib/include)
+endif()

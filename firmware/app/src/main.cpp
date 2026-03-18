@@ -8,39 +8,38 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/version.h>
 
-// CIB & ETL
-#include <cib/cib.hpp>
-
-// Deepspan components
+#if CONFIG_DEEPSPAN_TRANSPORT_VIRTIO
 #include "deepspan/transport/virtio_transport.hpp"
+#endif
 
 LOG_MODULE_REGISTER(deepspan_main, CONFIG_DEEPSPAN_LOG_LEVEL);
-
-namespace {
-
-// Default VirtioTransport instance (compile-time parameters)
-deepspan::transport::DefaultTransport g_transport;
-
-} // anonymous namespace
 
 int main(void)
 {
     LOG_INF("Deepspan firmware starting (Zephyr %s)", KERNEL_VERSION_STRING);
 
-    // TODO: CIB nexus initialization (automatic component wiring)
-    // cib::nexus<AppConfig>::init();
+#if CONFIG_DEEPSPAN_TRANSPORT_VIRTIO
+    /* TODO: CIB nexus initialization (automatic component wiring)
+     * cib::nexus<AppConfig>::init(); */
 
-    // TODO: Transport initialization (set platform-specific shm address)
-    // g_transport.init(SHM_BASE, SHM_SIZE);
+    static deepspan::transport::DefaultTransport g_transport;
+    /* TODO: g_transport.init(SHM_BASE, SHM_SIZE); */
 
-    LOG_INF("Deepspan firmware ready");
+    LOG_INF("Deepspan firmware ready (VirtIO transport)");
 
-    // Zephyr event loop (handled by threads/workqueue)
     while (true) {
         g_transport.poll();
         k_sleep(K_MSEC(1));
     }
+#else
+    LOG_INF("Deepspan firmware ready (simulation mode)");
+
+    while (true) {
+        k_sleep(K_MSEC(100));
+    }
+#endif
 
     return 0;
 }

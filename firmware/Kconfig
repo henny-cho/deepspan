@@ -4,11 +4,11 @@ menu "Deepspan Firmware"
 config DEEPSPAN_FIRMWARE
     bool "Enable Deepspan Firmware Library"
     select CPP
-    select STD_CPP17
     select REQUIRES_FULL_LIBCPP
     help
       Enables the Deepspan firmware library.
       Includes ETL, CIB, and VirtioTransport components.
+      Set CONFIG_STD_CPP20=y (or higher) in prj.conf.
 
 if DEEPSPAN_FIRMWARE
 
@@ -23,9 +23,9 @@ config DEEPSPAN_USE_CIB
     bool "Use compile-time-init-build (CIB)"
     default y
     depends on DEEPSPAN_FIRMWARE
-    select STD_CPP20
     help
       Use the Intel CIB library. (cib::nexus, flow::service, etc.)
+      Requires CONFIG_STD_CPP20=y or higher in prj.conf.
 
 config DEEPSPAN_TRANSPORT_SIM
     bool "Simulation transport (POSIX shm + eventfd)"
