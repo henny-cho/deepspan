@@ -198,13 +198,15 @@ export DEEPSPAN_URL
 
 HELLO_SCRIPT="${DEEPSPAN_ROOT}/sdk/examples/hello.py"
 
-if command -v uv &>/dev/null; then
+VENV_PYTHON="${DEEPSPAN_ROOT}/.venv/bin/python"
+if [[ -x "${VENV_PYTHON}" ]]; then
+    "${VENV_PYTHON}" "${HELLO_SCRIPT}"
+elif command -v uv &>/dev/null; then
     (cd "${DEEPSPAN_ROOT}/sdk" && uv run python "${HELLO_SCRIPT}")
 elif command -v python3 &>/dev/null; then
-    # Fallback: use system python (requires httpx installed)
     python3 "${HELLO_SCRIPT}"
 else
-    fail "neither 'uv' nor 'python3' found"
+    fail "python not found (tried .venv, uv, python3)"
 fi
 
 echo ""
