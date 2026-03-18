@@ -87,10 +87,10 @@ func (t *Transport) GetFirmwareInfo() (fwVer, buildDate string, protoVer uint32,
 
 	// Parse simple fixed-field payload (not full JSON to avoid encoding/json dep)
 	// In production, use encoding/json here. For now, return stub values.
-	fwVer     = "v0.0.0"
+	fwVer = "v0.0.0"
 	buildDate = "2026-01-01T00:00:00Z"
-	protoVer  = 1
-	features  = []string{}
+	protoVer = 1
+	features = []string{}
 	_ = payload
 	return
 }

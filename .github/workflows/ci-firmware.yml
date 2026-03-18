@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 name: CI / Firmware (Zephyr)
 
+
 on:
   push:
     branches: [main]
@@ -27,12 +28,12 @@ jobs:
       ZEPHYR_TOOLCHAIN_VARIANT: host
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           path: deepspan
 
       - name: Install Python tools
-        run: pip3 install --quiet natsort
+        run: pip3 install --quiet natsort cmake jsonschema
 
       - name: West init & update
         working-directory: deepspan
@@ -57,7 +58,7 @@ jobs:
 
       - name: Upload twister results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: twister-results
           path: deepspan/twister-out/

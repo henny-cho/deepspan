@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-.PHONY: build test lint clean
+.PHONY: build test lint clean install-hooks
 
 BINARY := mgmt-daemon
 CMD     := ./cmd/mgmt-daemon
@@ -15,3 +15,6 @@ lint:
 
 clean:
 	rm -f $(BINARY)
+
+install-hooks:
+	../scripts/install-hooks.sh

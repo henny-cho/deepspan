@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 name: Release
 
+
 on:
   push:
     branches: [main]
@@ -14,6 +15,9 @@ jobs:
   release-please:
     name: Release Please
     runs-on: ubuntu-24.04
+    env:
+      # release-please-action@v4 uses Node.js 20; force Node.js 24 until upstream releases a fix.
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     outputs:
       releases_created: ${{ steps.rp.outputs.releases_created }}
       tag_name: ${{ steps.rp.outputs.tag_name }}
@@ -33,11 +37,11 @@ jobs:
     if: needs.release-please.outputs['server--release_created'] == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.26'
 
@@ -57,11 +61,11 @@ jobs:
     if: needs.release-please.outputs['mgmt-daemon--release_created'] == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.26'
 
@@ -82,9 +86,9 @@ jobs:
     permissions:
       id-token: write  # OIDC trusted publisher
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: astral-sh/setup-uv@v3
+      - uses: astral-sh/setup-uv@v7
 
       - name: Build SDK wheel
         working-directory: sdk

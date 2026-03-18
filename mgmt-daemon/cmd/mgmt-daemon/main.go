@@ -20,9 +20,9 @@ import (
 )
 
 func main() {
-	addr     := flag.String("addr", ":8081", "gRPC listen address")
+	addr := flag.String("addr", ":8081", "gRPC listen address")
 	rpmsgDev := flag.String("rpmsg-dev", "/dev/rpmsg0", "RPMsg device path")
-	sim      := flag.Bool("sim", false, "simulation mode: use /dev/null instead of rpmsg device")
+	sim := flag.Bool("sim", false, "simulation mode: use /dev/null instead of rpmsg device")
 	flag.Parse()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -41,7 +41,11 @@ func main() {
 		}
 		transport = t
 	}
-	defer transport.Close()
+	defer func() {
+		if err := transport.Close(); err != nil {
+			slog.Error("failed to close transport", "err", err)
+		}
+	}()
 
 	// gRPC service
 	mgmtSvc := service.NewManagementService(transport)

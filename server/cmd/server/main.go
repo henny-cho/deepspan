@@ -25,9 +25,9 @@ import (
 )
 
 func main() {
-	addr     := flag.String("addr", ":8080", "listen address")
+	addr := flag.String("addr", ":8080", "listen address")
 	mgmtAddr := flag.String("mgmt-addr", "localhost:8081", "mgmt-daemon address")
-	shmName  := flag.String("shm-name", "deepspan-sim", "hw-model POSIX shm name (without /dev/shm/ prefix)")
+	shmName := flag.String("shm-name", "deepspan-sim", "hw-model POSIX shm name (without /dev/shm/ prefix)")
 	flag.Parse()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
@@ -71,13 +71,13 @@ func main() {
 
 	mux.HandleFunc("/monitor", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprint(w, monitorHTML(*shmName))
+		_, _ = fmt.Fprint(w, monitorHTML(*shmName))
 	})
 
 	// ── Health check + API index ──────────────────────────────────────────
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		fmt.Fprintln(w, "ok")
+		_, _ = fmt.Fprintln(w, "ok")
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
@@ -85,21 +85,21 @@ func main() {
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain")
-		fmt.Fprintln(w, "Deepspan server")
-		fmt.Fprintln(w, "")
-		fmt.Fprintln(w, "Endpoints (ConnectRPC — JSON, gRPC, gRPC-Web):")
-		fmt.Fprintln(w, "  POST /deepspan.v1.HwipService/ListDevices")
-		fmt.Fprintln(w, "  POST /deepspan.v1.HwipService/GetDeviceStatus")
-		fmt.Fprintln(w, "  POST /deepspan.v1.HwipService/SubmitRequest")
-		fmt.Fprintln(w, "  POST /deepspan.v1.ManagementService/GetFirmwareInfo")
-		fmt.Fprintln(w, "  POST /deepspan.v1.ManagementService/ResetDevice")
-		fmt.Fprintln(w, "  POST /deepspan.v1.ManagementService/PushConfig")
-		fmt.Fprintln(w, "  POST /deepspan.v1.TelemetryService/GetTelemetry")
-		fmt.Fprintln(w, "")
-		fmt.Fprintln(w, "Monitoring:")
-		fmt.Fprintln(w, "  GET  /monitor        — live hardware dashboard")
-		fmt.Fprintln(w, "  GET  /api/hw-stats   — hw-model register state (JSON)")
-		fmt.Fprintln(w, "  GET  /healthz        — health check")
+		_, _ = fmt.Fprintln(w, "Deepspan server")
+		_, _ = fmt.Fprintln(w, "")
+		_, _ = fmt.Fprintln(w, "Endpoints (ConnectRPC — JSON, gRPC, gRPC-Web):")
+		_, _ = fmt.Fprintln(w, "  POST /deepspan.v1.HwipService/ListDevices")
+		_, _ = fmt.Fprintln(w, "  POST /deepspan.v1.HwipService/GetDeviceStatus")
+		_, _ = fmt.Fprintln(w, "  POST /deepspan.v1.HwipService/SubmitRequest")
+		_, _ = fmt.Fprintln(w, "  POST /deepspan.v1.ManagementService/GetFirmwareInfo")
+		_, _ = fmt.Fprintln(w, "  POST /deepspan.v1.ManagementService/ResetDevice")
+		_, _ = fmt.Fprintln(w, "  POST /deepspan.v1.ManagementService/PushConfig")
+		_, _ = fmt.Fprintln(w, "  POST /deepspan.v1.TelemetryService/GetTelemetry")
+		_, _ = fmt.Fprintln(w, "")
+		_, _ = fmt.Fprintln(w, "Monitoring:")
+		_, _ = fmt.Fprintln(w, "  GET  /monitor        — live hardware dashboard")
+		_, _ = fmt.Fprintln(w, "  GET  /api/hw-stats   — hw-model register state (JSON)")
+		_, _ = fmt.Fprintln(w, "  GET  /healthz        — health check")
 	})
 
 	srv := &http.Server{
@@ -143,20 +143,20 @@ const (
 	offResultData1  = 0x118
 
 	// ShmStats offsets (at SHM_STATS_OFFSET = 0x200)
-	shmStatsBase            = 0x200
-	offStatsCmdCount        = shmStatsBase + 0  // uint64
-	offStatsStartTime       = shmStatsBase + 8  // uint64
-	offStatsLastOpcode      = shmStatsBase + 16 // uint32
+	shmStatsBase             = 0x200
+	offStatsCmdCount         = shmStatsBase + 0  // uint64
+	offStatsStartTime        = shmStatsBase + 8  // uint64
+	offStatsLastOpcode       = shmStatsBase + 16 // uint32
 	offStatsLastResultStatus = shmStatsBase + 20 // uint32
-	offStatsFwCmdCount      = shmStatsBase + 24 // uint64
+	offStatsFwCmdCount       = shmStatsBase + 24 // uint64
 
 	shmMinSize = shmStatsBase + 32 // minimum bytes needed
 )
 
 type hwStats struct {
-	Available   bool   `json:"available"`
-	ShmPath     string `json:"shm_path"`
-	UptimeSec   int64  `json:"uptime_s"`
+	Available bool   `json:"available"`
+	ShmPath   string `json:"shm_path"`
+	UptimeSec int64  `json:"uptime_s"`
 
 	// RegMap fields
 	VersionRaw  string `json:"version"`
@@ -170,9 +170,9 @@ type hwStats struct {
 	IrqStatus   string `json:"irq_status"`
 
 	// Current command registers
-	CmdOpcode   string `json:"cmd_opcode"`
-	CmdArg0     string `json:"cmd_arg0"`
-	CmdArg1     string `json:"cmd_arg1"`
+	CmdOpcode    string `json:"cmd_opcode"`
+	CmdArg0      string `json:"cmd_arg0"`
+	CmdArg1      string `json:"cmd_arg1"`
 	ResultStatus string `json:"result_status"`
 	ResultData0  string `json:"result_data0"`
 	ResultData1  string `json:"result_data1"`
@@ -198,42 +198,48 @@ func readHwStats(shmPath string) (*hwStats, error) {
 	u64 := func(off int) uint64 { return le.Uint64(data[off:]) }
 	h32 := func(v uint32) string { return fmt.Sprintf("0x%08X", v) }
 
-	version  := u32(offVersion)
-	caps     := u32(offCapabilities)
-	statusR  := u32(offStatus)
+	version := u32(offVersion)
+	caps := u32(offCapabilities)
+	statusR := u32(offStatus)
 
 	capsStr := ""
-	if caps&0x1 != 0 { capsStr += "DMA " }
-	if caps&0x2 != 0 { capsStr += "IRQ " }
-	if caps&0x4 != 0 { capsStr += "MULTI" }
+	if caps&0x1 != 0 {
+		capsStr += "DMA "
+	}
+	if caps&0x2 != 0 {
+		capsStr += "IRQ "
+	}
+	if caps&0x4 != 0 {
+		capsStr += "MULTI"
+	}
 
 	startTime := int64(u64(offStatsStartTime))
-	uptime    := int64(0)
+	uptime := int64(0)
 	if startTime > 0 {
 		uptime = time.Now().Unix() - startTime
 	}
 
 	return &hwStats{
-		Available:   true,
-		ShmPath:     shmPath,
-		UptimeSec:   uptime,
-		VersionRaw:  h32(version),
-		VersionStr:  fmt.Sprintf("%d.%d.%d", (version>>16)&0xFF, (version>>8)&0xFF, version&0xFF),
-		CapsRaw:     h32(caps),
-		CapsStr:     capsStr,
-		StatusRaw:   h32(statusR),
-		StatusReady: statusR&0x1 != 0,
-		StatusBusy:  statusR&0x2 != 0,
-		StatusError: statusR&0x4 != 0,
-		IrqStatus:   h32(u32(offIrqStatus)),
-		CmdOpcode:   h32(u32(offCmdOpcode)),
-		CmdArg0:     h32(u32(offCmdArg0)),
-		CmdArg1:     h32(u32(offCmdArg1)),
-		ResultStatus: h32(u32(offResultStatus)),
-		ResultData0:  h32(u32(offResultData0)),
-		ResultData1:  h32(u32(offResultData1)),
-		CmdCount:     u64(offStatsCmdCount),
-		FwCmdCount:   u64(offStatsFwCmdCount),
+		Available:        true,
+		ShmPath:          shmPath,
+		UptimeSec:        uptime,
+		VersionRaw:       h32(version),
+		VersionStr:       fmt.Sprintf("%d.%d.%d", (version>>16)&0xFF, (version>>8)&0xFF, version&0xFF),
+		CapsRaw:          h32(caps),
+		CapsStr:          capsStr,
+		StatusRaw:        h32(statusR),
+		StatusReady:      statusR&0x1 != 0,
+		StatusBusy:       statusR&0x2 != 0,
+		StatusError:      statusR&0x4 != 0,
+		IrqStatus:        h32(u32(offIrqStatus)),
+		CmdOpcode:        h32(u32(offCmdOpcode)),
+		CmdArg0:          h32(u32(offCmdArg0)),
+		CmdArg1:          h32(u32(offCmdArg1)),
+		ResultStatus:     h32(u32(offResultStatus)),
+		ResultData0:      h32(u32(offResultData0)),
+		ResultData1:      h32(u32(offResultData1)),
+		CmdCount:         u64(offStatsCmdCount),
+		FwCmdCount:       u64(offStatsFwCmdCount),
 		LastOpcode:       h32(u32(offStatsLastOpcode)),
 		LastResultStatus: h32(u32(offStatsLastResultStatus)),
 	}, nil
