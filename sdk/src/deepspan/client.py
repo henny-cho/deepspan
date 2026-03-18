@@ -44,7 +44,7 @@ class DeepspanClient:
         return [
             DeviceInfo(
                 device_id=d.get("deviceId", ""),
-                state=DeviceState(d.get("state", 0)),
+                state=self._parse_state(d.get("state", 0)),
             )
             for d in resp.get("devices", [])
         ]
@@ -57,7 +57,7 @@ class DeepspanClient:
         )
         return DeviceInfo(
             device_id=device_id,
-            state=DeviceState(resp.get("state", 0)),
+            state=self._parse_state(resp.get("state", 0)),
         )
 
     def submit_request(self, device_id: str, opcode: int, data: bytes = b"") -> str:
@@ -124,6 +124,20 @@ class DeepspanClient:
         )
 
     # ── Internal ──────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _parse_state(raw: object) -> DeviceState:
+        """Parse a proto DeviceState value (int or proto-JSON string) into DeviceState."""
+        if isinstance(raw, int):
+            return DeviceState(raw)
+        # Proto JSON encodes enums as "DEVICE_STATE_<NAME>" strings
+        if isinstance(raw, str):
+            suffix = raw.removeprefix("DEVICE_STATE_")
+            try:
+                return DeviceState[suffix]
+            except KeyError:
+                return DeviceState.UNSPECIFIED
+        return DeviceState.UNSPECIFIED
 
     def _post(self, procedure: str, body: dict) -> dict:
         """Send a ConnectRPC unary request (JSON wire format)."""

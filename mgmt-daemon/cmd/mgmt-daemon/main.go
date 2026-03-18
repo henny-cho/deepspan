@@ -22,16 +22,30 @@ import (
 func main() {
 	addr     := flag.String("addr", ":8081", "gRPC listen address")
 	rpmsgDev := flag.String("rpmsg-dev", "/dev/rpmsg0", "RPMsg device path")
+	sim      := flag.Bool("sim", false, "simulation mode: use /dev/null instead of rpmsg device")
 	flag.Parse()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	slog.SetDefault(logger)
 
 	// OpenAMP transport
-	transport, err := openamp.NewTransport(*rpmsgDev)
-	if err != nil {
-		slog.Error("failed to open rpmsg transport", "err", err)
-		os.Exit(1)
+	var transport *openamp.Transport
+	var err error
+	if *sim {
+		slog.Info("simulation mode: using /dev/null as rpmsg transport")
+		var f *os.File
+		f, err = os.OpenFile("/dev/null", os.O_RDWR, 0)
+		if err != nil {
+			slog.Error("failed to open /dev/null", "err", err)
+			os.Exit(1)
+		}
+		transport = openamp.NewTransportFromFile(f)
+	} else {
+		transport, err = openamp.NewTransport(*rpmsgDev)
+		if err != nil {
+			slog.Error("failed to open rpmsg transport", "err", err)
+			os.Exit(1)
+		}
 	}
 	defer transport.Close()
 

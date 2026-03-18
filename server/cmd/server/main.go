@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -45,6 +46,31 @@ func main() {
 	telSvc := telemetry.NewService()
 	path, handler = deepspanv1connect.NewTelemetryServiceHandler(telSvc, intercept)
 	mux.Handle(path, handler)
+
+	// Health check + API index
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		fmt.Fprintln(w, "ok")
+	})
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain")
+		fmt.Fprintln(w, "Deepspan server")
+		fmt.Fprintln(w, "")
+		fmt.Fprintln(w, "Endpoints (ConnectRPC — JSON, gRPC, gRPC-Web):")
+		fmt.Fprintln(w, "  POST /deepspan.v1.HwipService/ListDevices")
+		fmt.Fprintln(w, "  POST /deepspan.v1.HwipService/GetDeviceStatus")
+		fmt.Fprintln(w, "  POST /deepspan.v1.HwipService/SubmitRequest")
+		fmt.Fprintln(w, "  POST /deepspan.v1.ManagementService/GetFirmwareInfo")
+		fmt.Fprintln(w, "  POST /deepspan.v1.ManagementService/ResetDevice")
+		fmt.Fprintln(w, "  POST /deepspan.v1.ManagementService/PushConfig")
+		fmt.Fprintln(w, "  POST /deepspan.v1.TelemetryService/GetTelemetry")
+		fmt.Fprintln(w, "")
+		fmt.Fprintln(w, "Health: GET /healthz")
+	})
 
 	srv := &http.Server{
 		Addr:    *addr,

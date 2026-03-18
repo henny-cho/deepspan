@@ -14,6 +14,9 @@ _deps/
 bin/
 *.test
 vendor/
+# Go compiled binaries (go build output in module roots)
+mgmt-daemon/mgmt-daemon
+server/server
 
 # Python
 __pycache__/
@@ -25,6 +28,9 @@ __pycache__/
 
 # Proto generated output — run ./scripts/codegen.sh to regenerate
 gen/python/
+
+# Build logs
+*.log
 
 # Kernel module
 *.ko
