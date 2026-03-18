@@ -14,12 +14,13 @@ import (
 	"syscall"
 	"time"
 
+	"strings"
+
 	"connectrpc.com/connect"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
 	deepspanv1connect "github.com/myorg/deepspan/gen/go/deepspan/v1/deepspanv1connect"
-	"github.com/myorg/deepspan/server/internal/hwip"
 	"github.com/myorg/deepspan/server/internal/management"
 	"github.com/myorg/deepspan/server/internal/telemetry"
 )
@@ -28,6 +29,7 @@ func main() {
 	addr := flag.String("addr", ":8080", "listen address")
 	mgmtAddr := flag.String("mgmt-addr", "localhost:8081", "mgmt-daemon address")
 	shmName := flag.String("shm-name", "deepspan-sim", "hw-model POSIX shm name (without /dev/shm/ prefix)")
+	deviceFlag := flag.String("device", "", "comma-separated /dev/hwipN paths for CGo/production mode (empty = shm simulation)")
 	flag.Parse()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
@@ -38,7 +40,15 @@ func main() {
 	// Register all services — ConnectRPC: gRPC + gRPC-Web + REST on same port
 	intercept := connect.WithInterceptors(loggingInterceptor(logger))
 
-	hwipSvc := hwip.NewService(*shmName)
+	var devicePaths []string
+	if *deviceFlag != "" {
+		devicePaths = splitCSV(*deviceFlag)
+	}
+	hwipSvc, err := makeHwipService(*shmName, devicePaths)
+	if err != nil {
+		slog.Error("failed to initialise hwip backend", "err", err)
+		os.Exit(1)
+	}
 	path, handler := deepspanv1connect.NewHwipServiceHandler(hwipSvc, intercept)
 	mux.Handle(path, handler)
 
@@ -409,6 +419,17 @@ refresh();
 </script>
 </body>
 </html>`
+}
+
+// splitCSV splits a comma-separated string, trimming spaces, skipping empties.
+func splitCSV(s string) []string {
+	var out []string
+	for _, part := range strings.Split(s, ",") {
+		if p := strings.TrimSpace(part); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // ── loggingInterceptor ────────────────────────────────────────────────────────

@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: Apache-2.0
+//go:build appframework_cgo
+
+package main
+
+import (
+	"fmt"
+
+	"github.com/myorg/deepspan/server/internal/hwip"
+)
+
+// makeHwipService creates a Service backed by the real hardware via CGo when
+// device paths are provided, otherwise falls back to the shm simulation path.
+func makeHwipService(shmName string, devices []string) (*hwip.Service, error) {
+	if len(devices) > 0 {
+		svc, err := hwip.NewServiceWithCgo(devices)
+		if err != nil {
+			return nil, fmt.Errorf("CGo backend: %w", err)
+		}
+		return svc, nil
+	}
+	return hwip.NewService(shmName), nil
+}

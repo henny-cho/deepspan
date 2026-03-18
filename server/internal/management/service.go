@@ -30,7 +30,11 @@ func (s *Service) GetFirmwareInfo(
 	req *connect.Request[deepspanv1.GetFirmwareInfoRequest],
 ) (*connect.Response[deepspanv1.GetFirmwareInfoResponse], error) {
 	slog.DebugContext(ctx, "proxy GetFirmwareInfo")
-	return s.client.GetFirmwareInfo(ctx, req)
+	resp, err := s.client.GetFirmwareInfo(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(resp.Msg), nil
 }
 
 func (s *Service) ResetDevice(
@@ -38,7 +42,11 @@ func (s *Service) ResetDevice(
 	req *connect.Request[deepspanv1.ResetDeviceRequest],
 ) (*connect.Response[deepspanv1.ResetDeviceResponse], error) {
 	slog.DebugContext(ctx, "proxy ResetDevice")
-	return s.client.ResetDevice(ctx, req)
+	resp, err := s.client.ResetDevice(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(resp.Msg), nil
 }
 
 func (s *Service) PushConfig(
@@ -46,7 +54,11 @@ func (s *Service) PushConfig(
 	req *connect.Request[deepspanv1.PushConfigRequest],
 ) (*connect.Response[deepspanv1.PushConfigResponse], error) {
 	slog.DebugContext(ctx, "proxy PushConfig")
-	return s.client.PushConfig(ctx, req)
+	resp, err := s.client.PushConfig(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(resp.Msg), nil
 }
 
 func (s *Service) GetConsolePath(
@@ -54,5 +66,9 @@ func (s *Service) GetConsolePath(
 	req *connect.Request[deepspanv1.GetConsolePathRequest],
 ) (*connect.Response[deepspanv1.GetConsolePathResponse], error) {
 	slog.DebugContext(ctx, "proxy GetConsolePath")
-	return s.client.GetConsolePath(ctx, req)
+	resp, err := s.client.GetConsolePath(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(resp.Msg), nil
 }
