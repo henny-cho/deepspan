@@ -1,93 +1,356 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Integration tests: generate all targets from a minimal descriptor."""
+"""TDD tests for each code generator target."""
 
-import textwrap
+import re
 from pathlib import Path
 
 import pytest
 
-from deepspan_codegen.schema import load_descriptor
+from deepspan_codegen.generators.c_firmware import CFirmwareGenerator
 from deepspan_codegen.generators.c_kernel import CKernelGenerator
 from deepspan_codegen.generators.cpp_hwmodel import CppHwModelGenerator
-from deepspan_codegen.generators.c_firmware import CFirmwareGenerator
-from deepspan_codegen.generators.proto import ProtoGenerator
 from deepspan_codegen.generators.go_opcodes import GoOpcodesGenerator
+from deepspan_codegen.generators.proto import ProtoGenerator
 from deepspan_codegen.generators.python_sdk import PythonSdkGenerator
 
 
-MINIMAL_YAML = textwrap.dedent("""
-    hwip:
-      name: accel
-      version: "1.0.0"
-      platform_registers:
-        total_size: 0x200
-        control_bank:
-          - { name: ctrl, offset: 0x000, access: rw,
-              bits: [{name: RESET, pos: 0}, {name: START, pos: 1}] }
-        command_bank:
-          - { name: cmd_opcode, offset: 0x100, access: wo }
-          - { name: cmd_arg0,   offset: 0x104, access: wo }
-        result_bank:
-          - { name: result_data0, offset: 0x114, access: ro }
-      operations:
-        - name: echo
-          opcode: 0x0001
-          proto_enum_value: 1
-          doc: "Echo test"
-          request:
-            encoding: fixed_args
-            fields: [{ name: arg0, type: u32 }, { name: arg1, type: u32 }]
-          response:
-            fields: [{ name: data0, type: u32 }]
-""")
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
-
-@pytest.fixture
-def desc(tmp_path):
-    p = tmp_path / "hwip.yaml"
-    p.write_text(MINIMAL_YAML)
-    return load_descriptor(str(p))
-
-
-def test_c_kernel(desc, tmp_path):
-    gen = CKernelGenerator(desc, tmp_path / "gen")
+def _gen(cls, desc, tmp_path) -> str:
+    gen = cls(desc, tmp_path / "gen")
     files = gen.generate()
-    assert len(files) == 1
-    content = files[0].read_text()
-    assert "DEEPSPAN_ACCEL_OP_ECHO" in content
-    assert "0x0001U" in content
-    assert "DEEPSPAN_ACCEL_REG_CMD_OPCODE" in content
+    assert len(files) == 1, f"Expected 1 file, got {len(files)}"
+    return files[0].read_text()
 
 
-def test_cpp_hwmodel(desc, tmp_path):
-    gen = CppHwModelGenerator(desc, tmp_path / "gen")
+def _gen_path(cls, desc, tmp_path) -> Path:
+    gen = cls(desc, tmp_path / "gen")
     files = gen.generate()
-    content = files[0].read_text()
-    assert "enum class AccelOp" in content
-    assert "ECHO = 0x0001U" in content
+    return files[0]
 
 
-def test_proto(desc, tmp_path):
-    gen = ProtoGenerator(desc, tmp_path / "gen")
-    files = gen.generate()
-    content = files[0].read_text()
-    assert "ACCEL_OP_UNSPECIFIED = 0" in content
-    assert "ACCEL_OP_ECHO = 1" in content
-    assert "service AccelHwipService" in content
+# ── C Kernel Generator ────────────────────────────────────────────────────────
+
+class TestCKernelGenerator:
+    def test_output_path(self, minimal_desc, tmp_path):
+        p = _gen_path(CKernelGenerator, minimal_desc, tmp_path)
+        assert p.name == "deepspan_accel.h"
+        assert "kernel" in str(p)
+
+    def test_include_guard(self, minimal_desc, tmp_path):
+        c = _gen(CKernelGenerator, minimal_desc, tmp_path)
+        assert "#ifndef DEEPSPAN_ACCEL_H" in c
+        assert "#define DEEPSPAN_ACCEL_H" in c
+        assert "#endif /* DEEPSPAN_ACCEL_H */" in c
+
+    def test_opcode_macros(self, minimal_desc, tmp_path):
+        c = _gen(CKernelGenerator, minimal_desc, tmp_path)
+        assert "#define DEEPSPAN_ACCEL_OP_ECHO    0x0001U" in c
+
+    def test_register_offset_macros(self, minimal_desc, tmp_path):
+        c = _gen(CKernelGenerator, minimal_desc, tmp_path)
+        assert "DEEPSPAN_ACCEL_REG_CMD_OPCODE" in c
+        assert "0x0100U" in c
+
+    def test_bit_field_macros(self, minimal_desc, tmp_path):
+        c = _gen(CKernelGenerator, minimal_desc, tmp_path)
+        assert "DEEPSPAN_ACCEL_CTRL_RESET" in c
+        assert "(1U << 0)" in c
+        assert "DEEPSPAN_ACCEL_CTRL_START" in c
+        assert "(1U << 1)" in c
+
+    def test_valid_op_macro(self, minimal_desc, tmp_path):
+        c = _gen(CKernelGenerator, minimal_desc, tmp_path)
+        assert "DEEPSPAN_ACCEL_IS_VALID_OP" in c
+        assert "0x0001U" in c
+
+    def test_request_struct(self, minimal_desc, tmp_path):
+        c = _gen(CKernelGenerator, minimal_desc, tmp_path)
+        assert "struct deepspan_accel_echo_req" in c
+        assert "__u32 arg0;" in c
+        assert "__u32 arg1;" in c
+
+    def test_response_struct(self, minimal_desc, tmp_path):
+        c = _gen(CKernelGenerator, minimal_desc, tmp_path)
+        assert "struct deepspan_accel_echo_resp" in c
+        assert "__u32 data0;" in c
+
+    def test_all_opcodes_in_full(self, full_desc, tmp_path):
+        c = _gen(CKernelGenerator, full_desc, tmp_path)
+        assert "DEEPSPAN_ACCEL_OP_ECHO" in c
+        assert "DEEPSPAN_ACCEL_OP_PROCESS" in c
+        assert "DEEPSPAN_ACCEL_OP_STATUS" in c
+
+    def test_all_registers_in_full(self, full_desc, tmp_path):
+        c = _gen(CKernelGenerator, full_desc, tmp_path)
+        assert "DEEPSPAN_ACCEL_REG_CMD_ARG0" in c
+        assert "DEEPSPAN_ACCEL_REG_RESULT_DATA1" in c
+        assert "DEEPSPAN_ACCEL_REG_VERSION" in c
+
+    def test_auto_generated_header(self, minimal_desc, tmp_path):
+        c = _gen(CKernelGenerator, minimal_desc, tmp_path)
+        assert "AUTO-GENERATED" in c
+        assert "DO NOT EDIT" in c
+
+    def test_dry_run_no_file(self, minimal_desc, tmp_path):
+        gen = CKernelGenerator(minimal_desc, tmp_path / "gen")
+        files = gen.generate(dry_run=True)
+        assert len(files) == 1
+        assert not files[0].exists()
 
 
-def test_go_opcodes(desc, tmp_path):
-    gen = GoOpcodesGenerator(desc, tmp_path / "gen")
-    files = gen.generate()
-    content = files[0].read_text()
-    assert "OpEcho uint32 = 0x0001U" in content
-    assert "AccelOpToHwOpcode" in content
+# ── C++ HW Model Generator ────────────────────────────────────────────────────
+
+class TestCppHwModelGenerator:
+    def test_output_path(self, minimal_desc, tmp_path):
+        p = _gen_path(CppHwModelGenerator, minimal_desc, tmp_path)
+        assert p.name == "ops.hpp"
+        assert "deepspan_accel" in str(p)
+
+    def test_namespace(self, minimal_desc, tmp_path):
+        c = _gen(CppHwModelGenerator, minimal_desc, tmp_path)
+        assert "namespace deepspan::accel {" in c
+        assert "}  // namespace deepspan::accel" in c
+
+    def test_pragma_once(self, minimal_desc, tmp_path):
+        c = _gen(CppHwModelGenerator, minimal_desc, tmp_path)
+        assert "#pragma once" in c
+
+    def test_enum_class(self, minimal_desc, tmp_path):
+        c = _gen(CppHwModelGenerator, minimal_desc, tmp_path)
+        assert "enum class AccelOp : uint32_t {" in c
+        assert "ECHO = 0x0001U," in c
+
+    def test_reg_offsets_struct(self, minimal_desc, tmp_path):
+        c = _gen(CppHwModelGenerator, minimal_desc, tmp_path)
+        assert "struct RegOffsets {" in c
+        assert "static constexpr uint32_t CMD_OPCODE = 0x0100U;" in c
+
+    def test_bit_struct(self, minimal_desc, tmp_path):
+        c = _gen(CppHwModelGenerator, minimal_desc, tmp_path)
+        assert "struct CtrlBits {" in c
+        assert "static constexpr uint32_t RESET = (1U << 0);" in c
+
+    def test_request_struct(self, minimal_desc, tmp_path):
+        c = _gen(CppHwModelGenerator, minimal_desc, tmp_path)
+        assert "struct EchoRequest {" in c
+        assert "uint32_t arg0{};" in c
+
+    def test_all_ops_full(self, full_desc, tmp_path):
+        c = _gen(CppHwModelGenerator, full_desc, tmp_path)
+        assert "ECHO = 0x0001U," in c
+        assert "PROCESS = 0x0002U," in c
+        assert "STATUS = 0x0003U," in c
 
 
-def test_python_sdk(desc, tmp_path):
-    gen = PythonSdkGenerator(desc, tmp_path / "gen")
-    files = gen.generate()
-    content = files[0].read_text()
-    assert "class AccelOp(IntEnum)" in content
-    assert "ECHO = 0x1" in content
-    assert "class EchoRequest(BaseModel)" in content
+# ── C Firmware Generator ──────────────────────────────────────────────────────
+
+class TestCFirmwareGenerator:
+    def test_output_path(self, minimal_desc, tmp_path):
+        p = _gen_path(CFirmwareGenerator, minimal_desc, tmp_path)
+        assert p.name == "dispatch.h"
+        assert "deepspan_accel" in str(p)
+
+    def test_include_guard(self, minimal_desc, tmp_path):
+        c = _gen(CFirmwareGenerator, minimal_desc, tmp_path)
+        assert "#ifndef DEEPSPAN_ACCEL_DISPATCH_H" in c
+        assert "#endif" in c
+
+    def test_is_valid_op_inline(self, minimal_desc, tmp_path):
+        c = _gen(CFirmwareGenerator, minimal_desc, tmp_path)
+        assert "deepspan_accel_is_valid_op" in c
+        assert "switch (op)" in c
+
+    def test_dispatch_function_decl(self, minimal_desc, tmp_path):
+        c = _gen(CFirmwareGenerator, minimal_desc, tmp_path)
+        assert "deepspan_accel_dispatch(" in c
+
+    def test_all_opcodes_in_switch(self, full_desc, tmp_path):
+        c = _gen(CFirmwareGenerator, full_desc, tmp_path)
+        assert "DEEPSPAN_ACCEL_OP_ECHO" in c
+        assert "DEEPSPAN_ACCEL_OP_PROCESS" in c
+        assert "DEEPSPAN_ACCEL_OP_STATUS" in c
+
+
+# ── Proto Generator ───────────────────────────────────────────────────────────
+
+class TestProtoGenerator:
+    def test_output_path(self, minimal_desc, tmp_path):
+        p = _gen_path(ProtoGenerator, minimal_desc, tmp_path)
+        assert p.name == "device.proto"
+        assert "v1" in str(p)
+
+    def test_proto3_syntax(self, minimal_desc, tmp_path):
+        c = _gen(ProtoGenerator, minimal_desc, tmp_path)
+        assert 'syntax = "proto3";' in c
+
+    def test_package_declaration(self, minimal_desc, tmp_path):
+        c = _gen(ProtoGenerator, minimal_desc, tmp_path)
+        assert "package deepspan_accel.v1;" in c
+
+    def test_go_package_option(self, minimal_desc, tmp_path):
+        c = _gen(ProtoGenerator, minimal_desc, tmp_path)
+        assert "option go_package" in c
+        assert "deepspan-hwip/accel" in c
+
+    def test_unspecified_enum_value_zero(self, minimal_desc, tmp_path):
+        c = _gen(ProtoGenerator, minimal_desc, tmp_path)
+        assert "ACCEL_OP_UNSPECIFIED = 0;" in c
+
+    def test_echo_enum_value(self, minimal_desc, tmp_path):
+        c = _gen(ProtoGenerator, minimal_desc, tmp_path)
+        assert "ACCEL_OP_ECHO = 1;" in c
+
+    def test_request_message(self, minimal_desc, tmp_path):
+        c = _gen(ProtoGenerator, minimal_desc, tmp_path)
+        assert "message EchoRequest {" in c
+        assert "string device_id = 1;" in c
+        assert "uint32 arg0 = 2;" in c
+
+    def test_response_message(self, minimal_desc, tmp_path):
+        c = _gen(ProtoGenerator, minimal_desc, tmp_path)
+        assert "message EchoResponse {" in c
+        assert "int32 status = 1;" in c
+
+    def test_service_definition(self, minimal_desc, tmp_path):
+        c = _gen(ProtoGenerator, minimal_desc, tmp_path)
+        assert "service AccelHwipService {" in c
+        assert "rpc Echo(EchoRequest) returns (EchoResponse);" in c
+
+    def test_submit_request_backwards_compat(self, minimal_desc, tmp_path):
+        c = _gen(ProtoGenerator, minimal_desc, tmp_path)
+        assert "rpc SubmitRequest(" in c
+
+    def test_all_ops_in_service(self, full_desc, tmp_path):
+        c = _gen(ProtoGenerator, full_desc, tmp_path)
+        assert "rpc Echo(" in c
+        assert "rpc Process(" in c
+        assert "rpc Status(" in c
+
+    def test_all_ops_in_enum(self, full_desc, tmp_path):
+        c = _gen(ProtoGenerator, full_desc, tmp_path)
+        assert "ACCEL_OP_ECHO = 1;" in c
+        assert "ACCEL_OP_PROCESS = 2;" in c
+        assert "ACCEL_OP_STATUS = 3;" in c
+
+
+# ── Go Opcodes Generator ──────────────────────────────────────────────────────
+
+class TestGoOpcodesGenerator:
+    def test_output_path(self, minimal_desc, tmp_path):
+        p = _gen_path(GoOpcodesGenerator, minimal_desc, tmp_path)
+        assert p.name == "opcodes.go"
+        assert "deepspan_accel" in str(p)
+
+    def test_package_declaration(self, minimal_desc, tmp_path):
+        c = _gen(GoOpcodesGenerator, minimal_desc, tmp_path)
+        assert "package accelserver" in c
+
+    def test_opcode_constant_go_syntax(self, minimal_desc, tmp_path):
+        """Go uses 0x0001 (no U suffix)."""
+        c = _gen(GoOpcodesGenerator, minimal_desc, tmp_path)
+        assert "OpEcho uint32 = 0x0001" in c
+        assert "0x0001U" not in c  # C-style suffix must NOT appear
+
+    def test_register_constant_go_syntax(self, minimal_desc, tmp_path):
+        c = _gen(GoOpcodesGenerator, minimal_desc, tmp_path)
+        # Jinja2 title filter lowercases after first char: "cmd_opcode" -> "Cmd_Opcode"
+        # replace("_","") -> "CmdOpcode", but Jinja title gives "Cmd_opcode" -> "Cmdopcode"
+        # Actual output: regCmdopcode (Jinja2 title != Python str.title for underscores)
+        assert "regCmdopcode uint32 = 0x0100" in c
+        assert "0x0100U" not in c
+
+    def test_op_to_hw_opcode_function(self, minimal_desc, tmp_path):
+        c = _gen(GoOpcodesGenerator, minimal_desc, tmp_path)
+        assert "func AccelOpToHwOpcode(protoOp int32) (uint32, bool)" in c
+        assert "case 1:" in c
+        assert "return OpEcho, true" in c
+
+    def test_validate_opcode_comma_case(self, minimal_desc, tmp_path):
+        """ValidateOpcode must use comma-separated case, not empty fall-through."""
+        c = _gen(GoOpcodesGenerator, minimal_desc, tmp_path)
+        assert "func ValidateOpcode(op uint32) bool" in c
+        # Single-op case: just OpEcho
+        assert "case OpEcho" in c
+        assert "return true" in c
+
+    def test_validate_opcode_multi_comma(self, full_desc, tmp_path):
+        """With 3 ops, ValidateOpcode uses 'case OpEcho, OpProcess, OpStatus:'."""
+        c = _gen(GoOpcodesGenerator, full_desc, tmp_path)
+        assert "case OpEcho, OpProcess, OpStatus:" in c
+
+    def test_unspecified_returns_false(self, full_desc, tmp_path):
+        """protoOp=0 (UNSPECIFIED) must return (0, false)."""
+        c = _gen(GoOpcodesGenerator, full_desc, tmp_path)
+        assert "default:" in c
+        assert "return 0, false" in c
+
+    def test_all_ops_present(self, full_desc, tmp_path):
+        c = _gen(GoOpcodesGenerator, full_desc, tmp_path)
+        assert "OpEcho uint32 = 0x0001" in c
+        assert "OpProcess uint32 = 0x0002" in c
+        assert "OpStatus uint32 = 0x0003" in c
+
+
+# ── Python SDK Generator ──────────────────────────────────────────────────────
+
+class TestPythonSdkGenerator:
+    def test_output_path(self, minimal_desc, tmp_path):
+        p = _gen_path(PythonSdkGenerator, minimal_desc, tmp_path)
+        assert p.name == "models.py"
+        assert "deepspan_accel" in str(p)
+
+    def test_intenum_class(self, minimal_desc, tmp_path):
+        c = _gen(PythonSdkGenerator, minimal_desc, tmp_path)
+        assert "class AccelOp(IntEnum):" in c
+        assert "ECHO = 0x1" in c
+
+    def test_pydantic_request_model(self, minimal_desc, tmp_path):
+        c = _gen(PythonSdkGenerator, minimal_desc, tmp_path)
+        assert "class EchoRequest(BaseModel):" in c
+        assert "arg0: int = Field" in c
+        assert "arg1: int = Field" in c
+
+    def test_uint32_field_bounds(self, minimal_desc, tmp_path):
+        """u32 fields must use ge=0, lt=2**32 bounds."""
+        c = _gen(PythonSdkGenerator, minimal_desc, tmp_path)
+        assert "ge=0, lt=2**32" in c
+
+    def test_encode_payload_for_fixed_args(self, minimal_desc, tmp_path):
+        c = _gen(PythonSdkGenerator, minimal_desc, tmp_path)
+        assert "def encode_payload(self) -> bytes:" in c
+        assert "struct.pack" in c
+
+    def test_pydantic_response_model(self, minimal_desc, tmp_path):
+        c = _gen(PythonSdkGenerator, minimal_desc, tmp_path)
+        assert "class EchoResponse(BaseModel):" in c
+        assert "data0: int = 0" in c
+
+    def test_accel_client_class(self, minimal_desc, tmp_path):
+        c = _gen(PythonSdkGenerator, minimal_desc, tmp_path)
+        assert "class AccelClient:" in c
+        assert 'hwip_type: str = "accel"' in c
+
+    def test_client_echo_method(self, minimal_desc, tmp_path):
+        c = _gen(PythonSdkGenerator, minimal_desc, tmp_path)
+        assert "def echo(" in c
+        assert "arg0: int = 0" in c
+
+    def test_all_ops_in_full(self, full_desc, tmp_path):
+        c = _gen(PythonSdkGenerator, full_desc, tmp_path)
+        assert "ECHO = 0x1" in c
+        assert "PROCESS = 0x2" in c
+        assert "STATUS = 0x3" in c
+        assert "def process(" in c
+        assert "def status(" in c
+
+    def test_bytes_field_in_process(self, full_desc, tmp_path):
+        c = _gen(PythonSdkGenerator, full_desc, tmp_path)
+        assert "data: bytes = Field" in c
+        assert "max_length=4096" in c
+
+    def test_python_syntax_valid(self, full_desc, tmp_path):
+        """Generated Python must be syntactically valid."""
+        import ast
+        c = _gen(PythonSdkGenerator, full_desc, tmp_path)
+        ast.parse(c)  # raises SyntaxError if invalid
