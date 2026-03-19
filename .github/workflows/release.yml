@@ -156,16 +156,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  trigger-accel-compat:
-    name: Trigger accel compatibility check
+  trigger-hwip-compat:
+    name: Trigger HWIP compatibility check
     needs: [release-please, platform-install-artifact]
     if: needs.release-please.outputs.releases_created == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - name: Dispatch accel CI
+      - name: Dispatch deepspan-hwip CI
         run: |
-          gh workflow run ci.yml \
-            --repo myorg/deepspan-accel \
+          gh workflow run ci-all.yml \
+            --repo myorg/deepspan-hwip \
             --field platform_ref=${{ needs.release-please.outputs.tag_name }}
         env:
           # Cross-repo dispatch requires a PAT with repo + workflow scope.

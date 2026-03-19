@@ -13,3 +13,12 @@ type Submitter interface {
 	// Returns (result_status, result_data0, result_data1, error).
 	SubmitCmd(opcode, arg0, arg1 uint32, timeoutMs uint32) (status, data0, data1 uint32, err error)
 }
+
+// SubmitterInfo is an optional interface that Submitter implementations may
+// additionally satisfy to expose HWIP type metadata.
+type SubmitterInfo interface {
+	// HwipType returns the HWIP type identifier (e.g. "accel", "codec").
+	HwipType() string
+	// Version returns the HWIP firmware/driver version string.
+	Version() string
+}

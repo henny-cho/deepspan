@@ -4,10 +4,33 @@
 from __future__ import annotations
 
 import json
-from typing import AsyncIterator, Iterator
+from typing import AsyncIterator, ClassVar, Iterator, Protocol, runtime_checkable
 import httpx
 
 from .models import DeviceInfo, DeviceState, FirmwareInfo, TelemetrySnapshot
+
+
+@runtime_checkable
+class HwipExtension(Protocol):
+    """Protocol that HWIP-specific extension objects must satisfy.
+
+    Example usage::
+
+        class AccelExtension:
+            hwip_type: ClassVar[str] = "accel"
+
+            def attach(self, client: "DeepspanClient") -> None:
+                client._accel = self  # bind to parent client
+
+            def echo(self, device_id: str, arg0: int, arg1: int) -> dict:
+                return client.submit_request(device_id, 0x0001, ...)
+
+        deepspan.register_extension(AccelExtension())
+    """
+
+    hwip_type: ClassVar[str]
+
+    def attach(self, client: "DeepspanClient") -> None: ...
 
 
 class DeepspanClient:
@@ -26,6 +49,7 @@ class DeepspanClient:
             timeout=timeout,
             headers={"Content-Type": "application/json"},
         )
+        self._extensions: dict[str, HwipExtension] = {}
 
     def close(self) -> None:
         self._http.close()
@@ -35,6 +59,15 @@ class DeepspanClient:
 
     def __exit__(self, *_: object) -> None:
         self.close()
+
+    def register_extension(self, ext: HwipExtension) -> None:
+        """Register a HWIP-specific extension and attach it to this client."""
+        self._extensions[ext.hwip_type] = ext
+        ext.attach(self)
+
+    def get_extension(self, hwip_type: str) -> HwipExtension | None:
+        """Return a registered extension by HWIP type, or None."""
+        return self._extensions.get(hwip_type)
 
     # ── HwipService ─────────────────────────────────────────────────────────
 
