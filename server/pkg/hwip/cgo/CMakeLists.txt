@@ -7,8 +7,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # ── appframework dependency ───────────────────────────────────────
 # Expect appframework already built at ../../../../appframework/build
-# (relative to this CMakeLists.txt: server/internal/hwip/cgo/)
-# Path: cgo/ -> hwip/ -> internal/ -> server/ -> deepspan/appframework
+# (relative to this CMakeLists.txt: server/pkg/hwip/cgo/)
+# Path: cgo/ -> hwip/ -> pkg/ -> server/ -> deepspan/appframework
 set(APPFRAMEWORK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../appframework")
 set(APPFRAMEWORK_BUILD "${APPFRAMEWORK_ROOT}/build")
 

@@ -13,7 +13,7 @@ import (
 
 	deepspanv1 "github.com/myorg/deepspan/gen/go/deepspan/v1"
 	deepspanv1connect "github.com/myorg/deepspan/gen/go/deepspan/v1/deepspanv1connect"
-	"github.com/myorg/deepspan/server/internal/hwip"
+	"github.com/myorg/deepspan/server/pkg/hwip"
 )
 
 // newTestServer returns an httptest.Server with the HwipService handler mounted.

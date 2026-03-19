@@ -75,22 +75,6 @@
         "CMAKE_CXX_FLAGS": "--coverage",
         "CMAKE_C_FLAGS": "--coverage"
       }
-    },
-    {
-      "name": "accel-dev",
-      "inherits": "dev",
-      "displayName": "Accel HWIP plugin (development)",
-      "cacheVariables": {
-        "DEEPSPAN_HWIP_TYPE": "accel"
-      }
-    },
-    {
-      "name": "codec-dev",
-      "inherits": "dev",
-      "displayName": "Codec HWIP plugin (development)",
-      "cacheVariables": {
-        "DEEPSPAN_HWIP_TYPE": "codec"
-      }
     }
   ],
   "buildPresets": [
@@ -98,9 +82,7 @@
     { "name": "dev-submodule", "configurePreset": "dev-submodule" },
     { "name": "sim",           "configurePreset": "sim" },
     { "name": "release",       "configurePreset": "release" },
-    { "name": "coverage",      "configurePreset": "coverage" },
-    { "name": "accel-dev",     "configurePreset": "accel-dev" },
-    { "name": "codec-dev",     "configurePreset": "codec-dev" }
+    { "name": "coverage",      "configurePreset": "coverage" }
   ],
   "testPresets": [
     {
@@ -119,18 +101,6 @@
       "name": "coverage",
       "configurePreset": "coverage",
       "output": { "outputOnFailure": true }
-    },
-    {
-      "name": "accel-dev",
-      "configurePreset": "accel-dev",
-      "output": { "outputOnFailure": true },
-      "execution": { "jobs": 4 }
-    },
-    {
-      "name": "codec-dev",
-      "configurePreset": "codec-dev",
-      "output": { "outputOnFailure": true },
-      "execution": { "jobs": 4 }
     }
   ]
 }

@@ -119,3 +119,55 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: sdk/dist/
+
+  platform-install-artifact:
+    name: Build & upload platform install artifact
+    needs: release-please
+    if: needs.release-please.outputs.releases_created == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build liburing-dev pkg-config
+
+      - name: Build and install platform
+        run: |
+          cmake --preset release \
+            -DCMAKE_INSTALL_PREFIX=dist/deepspan-platform \
+            -DDEESPAN_BUILD_TESTS=OFF
+          cmake --build --preset release -j$(nproc)
+          cmake --install build/release
+
+      - name: Package install artifact
+        run: |
+          TAG="${{ needs.release-please.outputs.tag_name }}"
+          tar czf "deepspan-platform-${TAG:-dev}.tar.gz" \
+            -C dist deepspan-platform
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: deepspan-platform-*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  trigger-accel-compat:
+    name: Trigger accel compatibility check
+    needs: [release-please, platform-install-artifact]
+    if: needs.release-please.outputs.releases_created == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Dispatch accel CI
+        run: |
+          gh workflow run ci.yml \
+            --repo myorg/deepspan-accel \
+            --field platform_ref=${{ needs.release-please.outputs.tag_name }}
+        env:
+          # Cross-repo dispatch requires a PAT with repo + workflow scope.
+          # Store as secrets.DISPATCH_PAT.
+          GH_TOKEN: ${{ secrets.DISPATCH_PAT }}

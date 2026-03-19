@@ -43,7 +43,14 @@ if(DEEPSPAN_BUILD_TESTS)
 endif()
 
 include(GNUInstallDirs)
-install(TARGETS deepspan-appframework EXPORT DeepspanAppframeworkTargets
+
+# ── Platform install export ───────────────────────────────────────────
+# Both deepspan-appframework and deepspan-userlib are exported together
+# under the DeepspanPlatformTargets export set so that external repos
+# (e.g. deepspan-accel) can consume them via find_package(DeepspanPlatform).
+install(TARGETS deepspan-appframework deepspan-userlib
+    EXPORT DeepspanPlatformTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

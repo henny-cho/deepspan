@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 //go:build appframework_cgo
 
-package main
+package server
 
 import (
 	"fmt"
 
-	"github.com/myorg/deepspan/server/internal/hwip"
+	"github.com/myorg/deepspan/server/pkg/hwip"
 )
 
 // makeHwipService creates a Service backed by real hardware via CGo when

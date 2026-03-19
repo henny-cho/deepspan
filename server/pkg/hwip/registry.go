@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 package hwip
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// ErrNoPlugin is returned when no plugin has been registered for the requested
+// hwip type.  Callers (e.g. platform server started without a plugin binary)
+// receive this error and should exit with a clear diagnostic.
+var ErrNoPlugin = errors.New("no plugin registered for hwip type")
 
 // SubmitterFactory creates a Submitter for a given shm name.
 // Register one per hwip type (e.g. "accel", "codec").
@@ -16,11 +24,11 @@ func Register(hwipType string, factory SubmitterFactory) {
 }
 
 // NewSubmitter creates a Submitter for the registered hwipType.
-// Returns an error if hwipType has not been registered.
+// Returns ErrNoPlugin if hwipType has not been registered.
 func NewSubmitter(hwipType, shmName string) (Submitter, error) {
 	fn, ok := factories[hwipType]
 	if !ok {
-		return nil, fmt.Errorf("hwip: unknown type %q (registered: %v)", hwipType, registeredTypes())
+		return nil, fmt.Errorf("%w: %q (registered: %v)", ErrNoPlugin, hwipType, registeredTypes())
 	}
 	return fn(shmName), nil
 }

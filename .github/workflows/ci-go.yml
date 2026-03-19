@@ -7,9 +7,7 @@ on:
     paths:
       - 'mgmt-daemon/**'
       - 'server/**'
-      - 'hwip/**/server/**'
       - 'gen/go/**'
-      - 'gen/hwip/**'
       - 'go.work'
       - '.github/workflows/ci-go.yml'
   pull_request:
@@ -17,9 +15,7 @@ on:
     paths:
       - 'mgmt-daemon/**'
       - 'server/**'
-      - 'hwip/**/server/**'
       - 'gen/go/**'
-      - 'gen/hwip/**'
       - 'go.work'
 
 env:
@@ -38,8 +34,6 @@ jobs:
             slug: mgmt-daemon
           - module: server
             slug: server
-          - module: hwip/accel/server
-            slug: hwip-accel-server
 
     steps:
       - uses: actions/checkout@v5
@@ -50,7 +44,6 @@ jobs:
           cache-dependency-path: |
             ${{ matrix.module }}/go.sum
             gen/go/go.sum
-            gen/hwip/accel/go/go.sum
 
       - name: Download dependencies
         working-directory: ${{ matrix.module }}
@@ -82,8 +75,6 @@ jobs:
             slug: mgmt-daemon
           - module: server
             slug: server
-          - module: hwip/accel/server
-            slug: hwip-accel-server
 
     steps:
       - uses: actions/checkout@v5
@@ -94,7 +85,6 @@ jobs:
           cache-dependency-path: |
             ${{ matrix.module }}/go.sum
             gen/go/go.sum
-            gen/hwip/accel/go/go.sum
 
       - uses: golangci/golangci-lint-action@v9
         with:

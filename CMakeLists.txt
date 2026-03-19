@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.27)
-project(Deepspan VERSION 0.1.0 LANGUAGES C CXX)
+project(Deepspan VERSION 0.2.0 LANGUAGES C CXX)
+
+include(GNUInstallDirs)
 
 # ── Options ───────────────────────────────────────────────────────────
 option(DEEPSPAN_BUILD_HW_MODEL    "Build hw-model simulator"     ON)
@@ -8,10 +10,6 @@ option(DEEPSPAN_BUILD_APPFRAMEWORK "Build appframework"          ON)
 option(DEEPSPAN_BUILD_FIRMWARE    "Build Zephyr firmware (West)" OFF)
 option(DEEPSPAN_BUILD_KERNEL      "Build Linux kernel module"    OFF)
 option(DEEPSPAN_BUILD_TESTS       "Build tests"                  ON)
-
-set(DEEPSPAN_HWIP_TYPE "accel" CACHE STRING
-    "HWIP plugin type to build (accel|codec|crypto). Controls which hwip/<type>/ subdirectory is included.")
-set_property(CACHE DEEPSPAN_HWIP_TYPE PROPERTY STRINGS accel codec crypto)
 
 if(DEEPSPAN_BUILD_TESTS)
     enable_testing()
@@ -53,14 +51,6 @@ if(DEEPSPAN_BUILD_APPFRAMEWORK)
     add_subdirectory(appframework)
 endif()
 
-# ── HWIP plugin ───────────────────────────────────────────────────────
-if(EXISTS "${CMAKE_SOURCE_DIR}/hwip/${DEEPSPAN_HWIP_TYPE}/CMakeLists.txt")
-    add_subdirectory(hwip/${DEEPSPAN_HWIP_TYPE})
-else()
-    message(WARNING "hwip/${DEEPSPAN_HWIP_TYPE}/CMakeLists.txt not found; "
-                    "set DEEPSPAN_HWIP_TYPE to an existing plugin (accel, codec, ...)")
-endif()
-
 if(DEEPSPAN_BUILD_KERNEL)
     include(ExternalProject)
     ExternalProject_Add(deepspan-kernel
@@ -74,5 +64,26 @@ if(DEEPSPAN_BUILD_KERNEL)
             CONFIG_DEEPSPAN_TRANSPORT_SIM=y
         INSTALL_COMMAND ""
         BUILD_ALWAYS TRUE
+    )
+endif()
+
+# ── Platform install export ───────────────────────────────────────────
+# Enables external repos (e.g. deepspan-accel) to consume the platform
+# libraries via find_package(DeepspanPlatform REQUIRED).
+if(DEEPSPAN_BUILD_APPFRAMEWORK AND DEEPSPAN_BUILD_USERLIB)
+    include(CMakePackageConfigHelpers)
+    write_basic_package_version_file(
+        "${CMAKE_CURRENT_BINARY_DIR}/DeepspanPlatformConfigVersion.cmake"
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion
+    )
+    install(EXPORT DeepspanPlatformTargets
+        NAMESPACE Deepspan::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/DeepspanPlatform
+    )
+    install(FILES
+        cmake/DeepspanPlatformConfig.cmake
+        "${CMAKE_CURRENT_BINARY_DIR}/DeepspanPlatformConfigVersion.cmake"
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/DeepspanPlatform
     )
 endif()

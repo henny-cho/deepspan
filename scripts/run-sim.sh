@@ -21,6 +21,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEEPSPAN_ROOT="${SCRIPT_DIR}/.."
+# deepspan-accel repo is expected alongside deepspan/ (sibling directory).
+# Override with DEEPSPAN_ACCEL_ROOT env var if layout differs.
+ACCEL_ROOT="${DEEPSPAN_ACCEL_ROOT:-${DEEPSPAN_ROOT}/../deepspan-accel}"
 export PATH="/usr/local/go/bin:${HOME}/go/bin:${HOME}/.local/bin:${HOME}/.cargo/bin:$PATH"
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
@@ -86,14 +89,25 @@ build_hw_model() {
 }
 
 build_go_services() {
-    log "building Go services (mgmt-daemon, server)..."
+    log "building Go services (mgmt-daemon, deepspan-accel-server)..."
     local gen_go="${DEEPSPAN_ROOT}/gen/go"
     if [ -f "${gen_go}/go.mod" ]; then
         (cd "${gen_go}" && go mod tidy 2>/dev/null)
     fi
     (cd "${DEEPSPAN_ROOT}/mgmt-daemon" && go build -o "${DEEPSPAN_ROOT}/build/bin/mgmt-daemon" ./cmd/mgmt-daemon/)
-    (cd "${DEEPSPAN_ROOT}/server"      && go build -o "${DEEPSPAN_ROOT}/build/bin/deepspan-server" ./cmd/server/)
-    ok "Go services built"
+
+    # The platform server binary has no hwip plugin registered — use the accel
+    # server binary from deepspan-accel repo instead.
+    if [[ -d "${ACCEL_ROOT}/server" ]]; then
+        log "building deepspan-accel-server from ${ACCEL_ROOT}/server ..."
+        (cd "${ACCEL_ROOT}/server" && go build -o "${DEEPSPAN_ROOT}/build/bin/deepspan-accel-server" ./)
+        ok "Go services built (accel server from ${ACCEL_ROOT})"
+    else
+        warn "deepspan-accel repo not found at ${ACCEL_ROOT}"
+        warn "  Set DEEPSPAN_ACCEL_ROOT or clone https://github.com/myorg/deepspan-accel"
+        warn "  alongside this repo.  Falling back to platform server (no hwip plugin)."
+        (cd "${DEEPSPAN_ROOT}/server" && go build -o "${DEEPSPAN_ROOT}/build/bin/deepspan-accel-server" ./cmd/server/)
+    fi
 }
 
 if [[ $NO_BUILD -eq 0 ]]; then
@@ -117,7 +131,7 @@ BIN_DIR="${DEEPSPAN_ROOT}/build/bin"
 HW_MODEL_BIN="${DEEPSPAN_ROOT}/hw-model/build/deepspan-hw-model"
 FW_SIM_BIN="${DEEPSPAN_ROOT}/hw-model/build/deepspan-firmware-sim"
 MGMT_BIN="${BIN_DIR}/mgmt-daemon"
-SERVER_BIN="${BIN_DIR}/deepspan-server"
+SERVER_BIN="${BIN_DIR}/deepspan-accel-server"
 ZEPHYR_BIN="${DEEPSPAN_ROOT}/build/firmware/app/zephyr/zephyr.exe"
 
 [[ -f "${MGMT_BIN}"   ]] || fail "mgmt-daemon binary not found: ${MGMT_BIN}"
@@ -169,7 +183,8 @@ ok "mgmt-daemon started (pid ${PIDS[-1]})"
 
 # ── Start server ──────────────────────────────────────────────────────────────
 log "starting server (addr ${SERVER_ADDR})..."
-"${SERVER_BIN}" --addr "${SERVER_ADDR}" --mgmt-addr "localhost${MGMT_ADDR}" --shm-name "${HW_MODEL_SHM}" \
+"${SERVER_BIN}" --addr "${SERVER_ADDR}" --mgmt-addr "localhost${MGMT_ADDR}" \
+    --shm-name "${HW_MODEL_SHM}" --hwip-type accel \
     >"${DEEPSPAN_ROOT}/build/logs/server.log" 2>&1 &
 PIDS+=($!)
 ok "server started (pid ${PIDS[-1]})"

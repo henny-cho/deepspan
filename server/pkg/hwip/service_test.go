@@ -8,7 +8,7 @@ import (
 	"connectrpc.com/connect"
 
 	deepspanv1 "github.com/myorg/deepspan/gen/go/deepspan/v1"
-	"github.com/myorg/deepspan/server/internal/hwip"
+	"github.com/myorg/deepspan/server/pkg/hwip"
 )
 
 func TestListDevices(t *testing.T) {
