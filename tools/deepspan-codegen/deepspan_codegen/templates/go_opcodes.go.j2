@@ -7,14 +7,14 @@ package {{ desc.name }}server
 // ── HW opcode constants ─────────────────────────────────────────────────────
 const (
 {% for op in desc.operations %}
-	Op{{ op.name_camel }} uint32 = {{ op.opcode | hex }}  // {{ op.doc }}
+	Op{{ op.name_camel }} uint32 = {{ op.opcode | go_hex }}  // {{ op.doc }}
 {% endfor %}
 )
 
 // ── Register offset constants ───────────────────────────────────────────────
 const (
 {% for reg in desc.platform_registers.all_registers() %}
-	reg{{ reg.name | title | replace("_", "") }} uint32 = {{ reg.offset | hex }}
+	reg{{ reg.name | title | replace("_", "") }} uint32 = {{ reg.offset | go_hex }}
 {% endfor %}
 )
 
@@ -37,9 +37,7 @@ func {{ desc.name_camel }}OpToHwOpcode(protoOp int32) (uint32, bool) {
 // ValidateOpcode returns true if op is a recognized HW opcode.
 func ValidateOpcode(op uint32) bool {
 	switch op {
-{% for op in desc.operations %}
-	case Op{{ op.name_camel }}:
-{% endfor %}
+	case {% for op in desc.operations %}Op{{ op.name_camel }}{% if not loop.last %}, {% endif %}{% endfor %}:
 		return true
 	default:
 		return false

@@ -130,11 +130,26 @@ class HwipDescriptor(BaseModel):
 
 
 def load_descriptor(path: str) -> HwipDescriptor:
-    """Load and validate an hwip.yaml file."""
+    """Load and validate an hwip.yaml file.
+
+    Supports two YAML layouts:
+    - Flat: all fields at top level
+    - Sectioned: metadata under ``hwip:`` key, with ``platform_registers`` and
+      ``operations`` at top level (as used in the plan's example)
+    """
     import yaml  # type: ignore[import-untyped]
 
     with open(path, encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
-    hwip_raw = raw.get("hwip", raw)
+    if "hwip" in raw:
+        # Merge hwip: sub-dict with top-level platform_registers / operations
+        merged = dict(raw.get("hwip", {}))
+        for key in ("platform_registers", "operations"):
+            if key in raw and key not in merged:
+                merged[key] = raw[key]
+        hwip_raw = merged
+    else:
+        hwip_raw = raw
+
     return HwipDescriptor.model_validate(hwip_raw)

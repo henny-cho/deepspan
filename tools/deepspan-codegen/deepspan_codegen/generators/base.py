@@ -23,8 +23,9 @@ class BaseGenerator(ABC):
             trim_blocks=True,
             lstrip_blocks=True,
         )
-        self._env.filters["hex"] = lambda v: f"0x{v:04X}U"
-        self._env.filters["hex_nopad"] = lambda v: f"0x{v:X}"
+        self._env.filters["hex"] = lambda v: f"0x{v:04X}U"       # C/C++: 0x0001U
+        self._env.filters["hex_nopad"] = lambda v: f"0x{v:X}"    # Python: 0x1
+        self._env.filters["go_hex"] = lambda v: f"0x{v:04x}"     # Go: 0x0001
 
     @abstractmethod
     def generate(self, dry_run: bool = False) -> list[Path]:
