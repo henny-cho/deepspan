@@ -27,10 +27,8 @@
 /* ── Opcode validation ─────────────────────────────────────────────────── */
 #define {{ desc.namespace | upper }}_IS_VALID_OP(op) ( \
 {% for op in desc.operations %}
-    (op) == {{ op.opcode | hex }}{% if not loop.last %} || \{% endif %}
-
+    (op) == {{ op.opcode | hex }}{% if not loop.last %} || \{% else %}){% endif %}
 {% endfor %}
-)
 
 /* ── Request/response structs ──────────────────────────────────────────── */
 {% for op in desc.operations %}

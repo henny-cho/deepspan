@@ -247,17 +247,19 @@ class TestGoOpcodesGenerator:
         assert "package accelserver" in c
 
     def test_opcode_constant_go_syntax(self, minimal_desc, tmp_path):
-        """Go uses 0x0001 (no U suffix)."""
+        """Go uses 0x0001 (no U suffix); gofmt may add alignment whitespace."""
+        import re
         c = _gen(GoOpcodesGenerator, minimal_desc, tmp_path)
-        assert "OpEcho uint32 = 0x0001" in c
+        # gofmt aligns consts with tabs, so use regex to allow whitespace between name and type
+        assert re.search(r"OpEcho\s+uint32\s*=\s*0x0001", c)
         assert "0x0001U" not in c  # C-style suffix must NOT appear
 
     def test_register_constant_go_syntax(self, minimal_desc, tmp_path):
+        """camel filter converts cmd_opcode → CmdOpcode (proper Go camelCase)."""
+        import re
         c = _gen(GoOpcodesGenerator, minimal_desc, tmp_path)
-        # Jinja2 title filter lowercases after first char: "cmd_opcode" -> "Cmd_Opcode"
-        # replace("_","") -> "CmdOpcode", but Jinja title gives "Cmd_opcode" -> "Cmdopcode"
-        # Actual output: regCmdopcode (Jinja2 title != Python str.title for underscores)
-        assert "regCmdopcode uint32 = 0x0100" in c
+        # camel filter: cmd_opcode → CmdOpcode (not Cmdopcode from Jinja2 title)
+        assert re.search(r"regCmdOpcode\s+uint32\s*=\s*0x0100", c)
         assert "0x0100U" not in c
 
     def test_op_to_hw_opcode_function(self, minimal_desc, tmp_path):
@@ -286,10 +288,12 @@ class TestGoOpcodesGenerator:
         assert "return 0, false" in c
 
     def test_all_ops_present(self, full_desc, tmp_path):
+        import re
         c = _gen(GoOpcodesGenerator, full_desc, tmp_path)
-        assert "OpEcho uint32 = 0x0001" in c
-        assert "OpProcess uint32 = 0x0002" in c
-        assert "OpStatus uint32 = 0x0003" in c
+        # gofmt aligns consts with tabs — use regex to allow alignment whitespace
+        assert re.search(r"OpEcho\s+uint32\s*=\s*0x0001", c)
+        assert re.search(r"OpProcess\s+uint32\s*=\s*0x0002", c)
+        assert re.search(r"OpStatus\s+uint32\s*=\s*0x0003", c)
 
 
 # ── Python SDK Generator ──────────────────────────────────────────────────────

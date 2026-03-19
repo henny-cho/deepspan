@@ -98,11 +98,12 @@ class TestRegisterConsistency:
         assert "RESULT_DATA1 = 0x0118U" in cpp
 
     def test_go_reg_constants(self, all_generated):
+        import re
         go = all_generated["go"]
-        # Jinja2 title filter: "cmd_opcode" -> "Cmd_opcode" -> replace -> "Cmdopcode"
-        assert "regCmdopcode uint32 = 0x0100" in go
-        # Jinja2 title filter: "result_data0" -> "Result_data0" -> replace -> "Resultdata0"
-        assert "regResultdata0 uint32 = 0x0114" in go
+        # camel filter: cmd_opcode → CmdOpcode; gofmt may add alignment tabs
+        assert re.search(r"regCmdOpcode\s+uint32\s*=\s*0x0100", go)
+        # camel filter: result_data0 → ResultData0
+        assert re.search(r"regResultData0\s+uint32\s*=\s*0x0114", go)
 
     def test_firmware_includes_kernel_header(self, all_generated):
         fw = all_generated["c_firmware"]

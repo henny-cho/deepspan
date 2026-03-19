@@ -14,7 +14,7 @@ const (
 // ── Register offset constants ───────────────────────────────────────────────
 const (
 {% for reg in desc.platform_registers.all_registers() %}
-	reg{{ reg.name | title | replace("_", "") }} uint32 = {{ reg.offset | go_hex }}
+	reg{{ reg.name | camel }} uint32 = {{ reg.offset | go_hex }}
 {% endfor %}
 )
 

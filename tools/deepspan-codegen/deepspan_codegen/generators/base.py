@@ -26,6 +26,9 @@ class BaseGenerator(ABC):
         self._env.filters["hex"] = lambda v: f"0x{v:04X}U"       # C/C++: 0x0001U
         self._env.filters["hex_nopad"] = lambda v: f"0x{v:X}"    # Python: 0x1
         self._env.filters["go_hex"] = lambda v: f"0x{v:04x}"     # Go: 0x0001
+        self._env.filters["camel"] = lambda s: "".join(
+            w.capitalize() for w in s.split("_")
+        )  # snake_case → CamelCase (e.g. cmd_opcode → CmdOpcode)
 
     @abstractmethod
     def generate(self, dry_run: bool = False) -> list[Path]:
