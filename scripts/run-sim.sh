@@ -100,7 +100,7 @@ build_go_services() {
     # server binary from deepspan-accel repo instead.
     if [[ -d "${ACCEL_ROOT}/server" ]]; then
         log "building deepspan-accel-server from ${ACCEL_ROOT}/server ..."
-        (cd "${ACCEL_ROOT}/server" && go build -o "${DEEPSPAN_ROOT}/build/bin/deepspan-accel-server" ./)
+        (cd "${ACCEL_ROOT}/server" && go build -o "${DEEPSPAN_ROOT}/build/bin/deepspan-accel-server" ./cmd/server/)
         ok "Go services built (accel server from ${ACCEL_ROOT})"
     else
         warn "deepspan-accel repo not found at ${ACCEL_ROOT}"

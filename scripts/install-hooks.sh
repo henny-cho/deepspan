@@ -33,7 +33,7 @@ elif [ "$INSTALL_LINT" = true ]; then
     echo "golangci-lint installed: $("$GOBIN/golangci-lint" version 2>&1 | head -1)"
 else
     echo ""
-    echo "Warning: golangci-lint not found. Pre-push lint checks will be skipped."
+    echo "Warning: golangci-lint not found. Pre-commit lint checks will be skipped."
     echo "To install automatically: ./scripts/install-hooks.sh --lint"
     echo "To install manually:      https://golangci-lint.run/welcome/install/"
 fi

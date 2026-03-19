@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Pre-push hook: run golangci-lint for every Go module before push.
+# Pre-commit hook: run golangci-lint for every Go module before commit.
 # Install once with: git config core.hooksPath .githooks
 set -euo pipefail
+
+# git hooks are invoked with a minimal PATH; restore common tool locations.
+export PATH="/usr/local/go/bin:${HOME}/go/bin:${HOME}/.local/bin:${PATH}"
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 GO_MODULES=(mgmt-daemon server)
@@ -14,15 +17,15 @@ if ! command -v golangci-lint &>/dev/null; then
     if [ -x "$GOPATH_BIN/golangci-lint" ]; then
         GOLANGCI_LINT="$GOPATH_BIN/golangci-lint"
     else
-        echo "[pre-push] golangci-lint not found — skipping Go lint" >&2
-        echo "[pre-push] Run: ./scripts/install-hooks.sh --lint" >&2
+        echo "[pre-commit] golangci-lint not found — skipping Go lint" >&2
+        echo "[pre-commit] Run: ./scripts/install-hooks.sh --lint" >&2
         exit 0
     fi
 fi
 
 FAILED=()
 for mod in "${GO_MODULES[@]}"; do
-    echo "[pre-push] Linting $mod ..."
+    echo "[pre-commit] Linting $mod ..."
     if ! (cd "$REPO_ROOT/$mod" && "$GOLANGCI_LINT" run ./...); then
         FAILED+=("$mod")
     fi
@@ -30,9 +33,9 @@ done
 
 if [ ${#FAILED[@]} -ne 0 ]; then
     echo ""
-    echo "[pre-push] ✗ Lint failed in: ${FAILED[*]}" >&2
-    echo "[pre-push] Fix the issues above and retry." >&2
+    echo "[pre-commit] ✗ Lint failed in: ${FAILED[*]}" >&2
+    echo "[pre-commit] Fix the issues above and retry." >&2
     exit 1
 fi
 
-echo "[pre-push] ✓ All Go modules passed lint."
+echo "[pre-commit] ✓ All Go modules passed lint."
