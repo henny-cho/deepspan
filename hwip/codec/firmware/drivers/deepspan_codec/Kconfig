@@ -1,7 +1,0 @@
-config DEEPSPAN_CODEC_HWIP
-	bool "Deepspan codec HWIP driver"
-	depends on DEEPSPAN_HWIP_BASE
-	help
-	  Enable the deepspan codec HWIP driver.
-	  Provides ENCODE and DECODE command support.
-	  This is a skeleton — implement deepspan_codec_hwip.c to complete.

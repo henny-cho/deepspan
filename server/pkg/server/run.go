@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Package server provides the deepspan platform server entry point.
-// Hwip plugin repos (e.g. deepspan-accel) call hwip.Register() before Run().
+// Hwip plugin repos (e.g. deepspan-hwip) call hwip.Register() before Run().
 package server
 
 import (

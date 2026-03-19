@@ -1,7 +1,0 @@
-config DEEPSPAN_ACCEL_HWIP
-	bool "Deepspan acceleration HWIP driver"
-	depends on DEEPSPAN_HWIP_BASE
-	help
-	  Enable the deepspan acceleration HWIP driver.
-	  Provides ECHO, PROCESS, and STATUS command support via
-	  the standard deepspan register map interface.

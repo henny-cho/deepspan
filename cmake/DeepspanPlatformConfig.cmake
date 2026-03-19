@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # DeepspanPlatformConfig.cmake — find_package(DeepspanPlatform) support.
 #
-# Usage in external repos (e.g. deepspan-accel):
+# Usage in HWIP repos (e.g. deepspan-hwip):
 #
 #   find_package(DeepspanPlatform REQUIRED
 #       HINTS "$ENV{DEEPSPAN_PLATFORM_DIR}/lib/cmake/DeepspanPlatform")

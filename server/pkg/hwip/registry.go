@@ -18,7 +18,7 @@ type SubmitterFactory func(shmName string) Submitter
 var factories = map[string]SubmitterFactory{}
 
 // Register associates hwipType with factory.  Call from an init() function in
-// the hwip plugin package (e.g. hwip/accel/server) or from main().
+// the hwip plugin package (e.g. deepspan-hwip/accel/server) or from main().
 func Register(hwipType string, factory SubmitterFactory) {
 	factories[hwipType] = factory
 }

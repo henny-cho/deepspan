@@ -31,11 +31,9 @@ plugins:
       - paths=source_relative
 
 # ── Per-hwip generation ───────────────────────────────────────────────────────
-# Run per-hwip buf generate from within each hwip/<type>/ directory:
+# HWIP plugins have moved to deepspan-hwip. Run codegen from that repo:
 #
-#   cd hwip/accel && buf generate --template buf.gen.yaml
-#   cd hwip/codec && buf generate --template buf.gen.yaml
+#   cd deepspan-hwip && ./scripts/codegen.sh
 #
-# Output directories:
-#   hwip/accel/proto → gen/hwip/accel/go/  (module: github.com/myorg/deepspan/gen/hwip/accel/go)
-#   hwip/codec/proto → gen/hwip/codec/go/  (module: github.com/myorg/deepspan/gen/hwip/codec/go)
+# Stage 1 (hwip.yaml → proto + all artifacts): deepspan-codegen
+# Stage 2 (proto → Go/Python stubs):           buf generate (deepspan-hwip/buf.yaml)
