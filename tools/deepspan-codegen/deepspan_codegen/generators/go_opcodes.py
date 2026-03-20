@@ -7,10 +7,10 @@ from .base import BaseGenerator
 
 
 class GoOpcodesGenerator(BaseGenerator):
-    """Generates gen/server/deepspan_<type>/opcodes.go (gofmt-formatted)"""
+    """Generates gen/l4-rpc/deepspan_<type>/opcodes.go (gofmt-formatted)"""
 
     def generate(self, dry_run: bool = False) -> list[Path]:
-        out = self.out_dir / "server" / f"deepspan_{self.desc.name}" / "opcodes.go"
+        out = self.out_dir / "l4-rpc" / f"deepspan_{self.desc.name}" / "opcodes.go"
         content = self._render("go_opcodes.go.j2")
         content = _gofmt(content)
         return [self._write(out, content, dry_run)]

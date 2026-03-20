@@ -4,7 +4,7 @@
 #
 # Usage:
 #   ./scripts/setup-all.sh                    # all layers
-#   ./scripts/setup-all.sh --layers hw-model,userlib,sdk
+#   ./scripts/setup-all.sh --layers l3-hw-model,l3-userlib,l6-sdk
 #   ./scripts/setup-all.sh --skip firmware    # skip Zephyr SDK download
 #
 # Each layer's script is idempotent — safe to re-run.
@@ -13,7 +13,7 @@ set -euo pipefail
 DEEPSPAN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # ── Argument parsing ─────────────────────────────────────────────────────────
-ALL_LAYERS=(hw-model firmware kernel userlib appframework mgmt-daemon server sdk)
+ALL_LAYERS=(l3-hw-model l2-firmware l2-kernel l3-userlib l3-appframework l4-mgmt-daemon l4-server l6-sdk)
 LAYERS=("${ALL_LAYERS[@]}")
 SKIP_LAYERS=()
 
@@ -116,6 +116,6 @@ echo ""
 echo "Next steps:"
 echo "  1. Reload shell:  source ~/.profile"
 echo "  2. Build C++:     cmake --preset dev-submodule && cmake --build build -j\$(nproc)"
-echo "  3. Build firmware: west build -b native_sim/native/64 firmware/app"
+echo "  3. Build firmware: west build -b native_sim/native/64 l2-firmware/app"
 echo "  4. Build Go:      cd server && go mod tidy && go build ./cmd/server"
 echo "  5. Test Python:   cd sdk && uv run pytest"

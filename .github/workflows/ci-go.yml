@@ -5,17 +5,17 @@ on:
   push:
     branches: [main]
     paths:
-      - 'mgmt-daemon/**'
-      - 'server/**'
-      - 'gen/go/**'
+      - 'l4-mgmt-daemon/**'
+      - 'l4-server/**'
+      - 'l5-gen/go/**'
       - 'go.work'
       - '.github/workflows/ci-go.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'mgmt-daemon/**'
-      - 'server/**'
-      - 'gen/go/**'
+      - 'l4-mgmt-daemon/**'
+      - 'l4-server/**'
+      - 'l5-gen/go/**'
       - 'go.work'
 
 env:
@@ -30,10 +30,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - module: mgmt-daemon
-            slug: mgmt-daemon
-          - module: server
-            slug: server
+          - module: l4-mgmt-daemon
+            slug: l4-mgmt-daemon
+          - module: l4-server
+            slug: l4-server
 
     steps:
       - uses: actions/checkout@v5
@@ -43,7 +43,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: |
             ${{ matrix.module }}/go.sum
-            gen/go/go.sum
+            l5-gen/go/go.sum
 
       - name: Download dependencies
         working-directory: ${{ matrix.module }}
@@ -71,10 +71,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - module: mgmt-daemon
-            slug: mgmt-daemon
-          - module: server
-            slug: server
+          - module: l4-mgmt-daemon
+            slug: l4-mgmt-daemon
+          - module: l4-server
+            slug: l4-server
 
     steps:
       - uses: actions/checkout@v5
@@ -84,7 +84,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: |
             ${{ matrix.module }}/go.sum
-            gen/go/go.sum
+            l5-gen/go/go.sum
 
       - uses: golangci/golangci-lint-action@v9
         with:

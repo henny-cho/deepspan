@@ -20,15 +20,16 @@
   [hw-model]            C++17 · POSIX shm + eventfd · MMIO 시뮬레이터
 ```
 
-| 레이어 | 언어 | 설명 |
-|--------|------|------|
-| `hw-model` | C++17 | FPGA 레지스터 MMIO 시뮬레이터 |
-| `firmware` | C++20 + Zephyr | ETL FSM · VirtIO transport · native_sim |
-| `kernel` | C (Linux) | virtio master 드라이버 · io_uring · 다중 디바이스 |
-| `userlib` | C++23 | ioctl / mmap / io_uring 래퍼 |
-| `appframework` | C++23 | DevicePool · CircuitBreaker · SessionManager |
-| `server` | Go | ConnectRPC 서버 · Protobuf |
-| `sdk` | Python | Pydantic v2 클라이언트 |
+| 레이어 | 디렉토리 | 언어 | 설명 |
+|--------|---------|------|------|
+| L3 | `l3-hw-model` | C++17 | FPGA 레지스터 MMIO 시뮬레이터 |
+| L2 | `l2-firmware` | C++20 + Zephyr | ETL FSM · VirtIO transport · native_sim |
+| L2 | `l2-kernel` | C (Linux) | virtio master 드라이버 · io_uring · 다중 디바이스 |
+| L3 | `l3-userlib` | C++23 | ioctl / mmap / io_uring 래퍼 |
+| L3 | `l3-appframework` | C++23 | DevicePool · CircuitBreaker · SessionManager |
+| L4 | `l4-server` | Go | ConnectRPC 서버 · Protobuf |
+| L5 | `l5-proto` / `l5-gen` | Protobuf / Go+Python | API 정의 및 생성 스텁 |
+| L6 | `l6-sdk` | Python | Pydantic v2 클라이언트 |
 
 ---
 
@@ -54,8 +55,8 @@ west update
 ```bash
 cd deepspan/
 ZEPHYR_TOOLCHAIN_VARIANT=host \
-west build -b native_sim/native/64 firmware/app \
-    -- -DZEPHYR_EXTRA_MODULES=$(pwd)/firmware
+west build -b native_sim/native/64 l2-firmware/app \
+    -- -DZEPHYR_EXTRA_MODULES=$(pwd)/l2-firmware
 ./build/zephyr/zephyr.exe   # 직접 실행
 ```
 
@@ -64,14 +65,14 @@ west build -b native_sim/native/64 firmware/app \
 ```bash
 cd deepspan/
 ZEPHYR_TOOLCHAIN_VARIANT=host \
-west twister --platform native_sim/native/64 -T firmware/tests
+west twister --platform native_sim/native/64 -T l2-firmware/tests
 # 예상: 2 of 2 test cases passed (100.00%)
 ```
 
 ### 4. C++ 레이어 빌드 및 테스트
 
 ```bash
-cd deepspan/appframework/
+cd deepspan/l3-appframework/
 cmake -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 ctest --test-dir build --output-on-failure
@@ -80,7 +81,7 @@ ctest --test-dir build --output-on-failure
 ### 5. Go 서버 빌드
 
 ```bash
-cd deepspan/server/
+cd deepspan/l4-server/
 buf generate        # Protobuf → Go 코드 생성
 go build -o bin/deepspan-server ./cmd/server/
 ```
@@ -106,7 +107,7 @@ cd deepspan/
 
 ```
 deepspan/
-├── firmware/               Zephyr 펌웨어
+├── l2-firmware/            L2: Zephyr 펌웨어
 │   ├── app/                메인 앱 (native_sim / ARM)
 │   │   ├── src/main.cpp
 │   │   ├── prj.conf
@@ -118,7 +119,10 @@ deepspan/
 │   │   └── test_fsm/       ETL FSM 단위 테스트 (ztest)
 │   ├── Kconfig
 │   └── zephyr/module.yml   West 모듈 정의
-├── appframework/           C++ 애플리케이션 프레임워크
+├── l2-kernel/              L2: Linux 커널 드라이버
+├── l3-hw-model/            L3: MMIO HW 시뮬레이터
+├── l3-userlib/             L3: C++ 유저 공간 라이브러리
+├── l3-appframework/        L3: C++ 애플리케이션 프레임워크
 │   ├── include/
 │   │   └── deepspan/appframework/
 │   │       ├── circuit_breaker.hpp
@@ -126,13 +130,15 @@ deepspan/
 │   │       └── session_manager.hpp
 │   ├── src/
 │   └── tests/unit/         GoogleTest 단위 테스트
-├── userlib/                C++ 유저 공간 라이브러리
-├── hw-model/               MMIO HW 시뮬레이터
-├── kernel/                 Linux 커널 드라이버
-├── server/                 Go ConnectRPC 서버
-├── sdk/                    Python SDK
-├── proto/                  Protobuf 정의
+├── l4-server/              L4: Go ConnectRPC 서버
+├── l4-mgmt-daemon/         L4: Go OpenAMP 관리 데몬
+├── l5-proto/               L5: Protobuf 정의
+├── l5-gen/                 L5: 생성된 Go/Python 스텁
+│   ├── go/                 Go ConnectRPC stubs
+│   └── python/             Python protobuf stubs
+├── l6-sdk/                 L6: Python SDK
 ├── third_party/            외부 의존성 (googletest, etl, spdlog)
+├── tools/                  개발 도구 (deepspan-codegen)
 └── west.yml                West 매니페스트 (Zephyr 4.3.0, ETL, CIB v1.7.0, OpenAMP)
 ```
 
@@ -152,10 +158,10 @@ deepspan/
 | 워크플로우 | 트리거 | 내용 |
 |-----------|--------|------|
 | `ci-firmware.yml` | `firmware/**`, `west.yml` | native_sim 빌드 + twister 테스트 |
-| `ci-cpp.yml` | `hw-model/**`, `userlib/**`, `appframework/**` | CMake 빌드 + ctest (dev / dev-submodule 프리셋) |
-| `ci-go.yml` | `mgmt-daemon/**`, `server/**`, `gen/go/**`, `go.work` | go build + go test -race + golangci-lint |
-| `ci-kernel.yml` | `kernel/**` | out-of-tree 커널 모듈 컴파일 체크 |
-| `ci-python.yml` | `sdk/**` | uv sync + pytest |
+| `ci-cpp.yml` | `l3-hw-model/**`, `l3-userlib/**`, `l3-appframework/**` | CMake 빌드 + ctest (dev / dev-submodule 프리셋) |
+| `ci-go.yml` | `l4-mgmt-daemon/**`, `l4-server/**`, `l5-gen/go/**`, `go.work` | go build + go test -race + golangci-lint |
+| `ci-kernel.yml` | `l2-kernel/**` | out-of-tree 커널 모듈 컴파일 체크 |
+| `ci-python.yml` | `l6-sdk/**` | uv sync + pytest |
 
 ---
 
@@ -201,4 +207,4 @@ deepspan/
 
 ---
 
-> 최종 업데이트: 2026-03-18 — 스크립트 레퍼런스, CI/CD 테이블, 문서 링크 추가
+> 최종 업데이트: 2026-03-20 — L-레이어 디렉토리 구조로 전면 개편 (l2-firmware, l3-hw-model, l4-server, l5-gen, l6-sdk 등)

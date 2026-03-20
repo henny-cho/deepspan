@@ -1,0 +1,39 @@
+version: v2
+
+# Managed mode: automatically sets go_package and other file-level options.
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/myorg/deepspan/l5-gen/go
+
+plugins:
+  # ── Go ───────────────────────────────────────────────────────────────────────
+  # Generates .pb.go files (message/enum types)
+  # Requires: go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+  - local: protoc-gen-go
+    out: ../l5-gen/go
+    opt:
+      - paths=source_relative
+
+  # Generates _connect.go files (ConnectRPC service interfaces + handlers)
+  # Requires: go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.16.2
+  - local: protoc-gen-connect-go
+    out: ../l5-gen/go
+    opt:
+      - paths=source_relative
+
+  # ── Python ───────────────────────────────────────────────────────────────────
+  # Generates _pb2.py files (message types)
+  - remote: buf.build/protocolbuffers/python
+    out: ../l5-gen/python
+    opt:
+      - paths=source_relative
+
+# ── Per-hwip generation ───────────────────────────────────────────────────────
+# HWIP plugins have moved to deepspan-hwip. Run codegen from that repo:
+#
+#   cd deepspan-hwip && ./scripts/codegen.sh
+#
+# Stage 1 (hwip.yaml → proto + all artifacts): deepspan-codegen
+# Stage 2 (proto → Go/Python stubs):           buf generate (deepspan-hwip/buf.yaml)

@@ -6,19 +6,19 @@ on:
   push:
     branches: [main]
     paths:
-      - 'hw-model/**'
-      - 'userlib/**'
-      - 'appframework/**'
-      - 'kernel/include/**'
+      - 'l3-hw-model/**'
+      - 'l3-userlib/**'
+      - 'l3-appframework/**'
+      - 'l2-kernel/include/**'
       - 'CMakePresets.json'
       - '.github/workflows/ci-cpp.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'hw-model/**'
-      - 'userlib/**'
-      - 'appframework/**'
-      - 'kernel/include/**'
+      - 'l3-hw-model/**'
+      - 'l3-userlib/**'
+      - 'l3-appframework/**'
+      - 'l2-kernel/include/**'
       - 'CMakePresets.json'
 
 jobs:

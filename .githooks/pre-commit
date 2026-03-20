@@ -8,7 +8,7 @@ set -euo pipefail
 export PATH="/usr/local/go/bin:${HOME}/go/bin:${HOME}/.local/bin:${PATH}"
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-GO_MODULES=(mgmt-daemon server)
+GO_MODULES=(l4-mgmt-daemon l4-server)
 
 # Resolve golangci-lint: check PATH first, then $GOPATH/bin fallback.
 GOLANGCI_LINT="golangci-lint"

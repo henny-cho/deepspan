@@ -15,7 +15,7 @@
 # Prerequisites per layer:
 #   firmware   — west workspace initialised (west init -l . && west update)
 #   kernel     — linux-headers-$(uname -r) installed
-#   mgmt-daemon/server — Go 1.26+ on PATH
+#   l4-mgmt-daemon/l4-server — Go 1.26+ on PATH
 #   sdk        — uv on PATH
 set -euo pipefail
 
@@ -24,18 +24,18 @@ export PATH="/usr/local/go/bin:${HOME}/go/bin:${HOME}/.local/bin:${HOME}/.cargo/
 
 # ── Layer definitions: name → build script path ──────────────────────────────
 declare -A LAYER_SCRIPT=(
-    [hw-model]="hw-model/scripts/build.sh"
-    [userlib]="userlib/scripts/build.sh"
-    [appframework]="appframework/scripts/build.sh"
+    [l3-hw-model]="l3-hw-model/scripts/build.sh"
+    [l3-userlib]="l3-userlib/scripts/build.sh"
+    [l3-appframework]="l3-appframework/scripts/build.sh"
     [kernel]="kernel/scripts/build.sh"
     [firmware]="firmware/scripts/build.sh"
-    [mgmt-daemon]="mgmt-daemon/scripts/build.sh"
-    [server]="server/scripts/build.sh"
+    [l4-mgmt-daemon]="l4-mgmt-daemon/scripts/build.sh"
+    [l4-server]="l4-server/scripts/build.sh"
     [sdk]="sdk/scripts/build.sh"
 )
 
 # Default order (dependencies first)
-ALL_LAYERS=(hw-model kernel userlib appframework firmware mgmt-daemon server sdk)
+ALL_LAYERS=(l3-hw-model l2-kernel l3-userlib l3-appframework l2-firmware l4-mgmt-daemon l4-server l6-sdk)
 LAYERS=("${ALL_LAYERS[@]}")
 SKIP_LAYERS=()
 

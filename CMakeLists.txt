@@ -40,26 +40,26 @@ endif()
 
 # ── Layer builds ──────────────────────────────────────────────────────
 if(DEEPSPAN_BUILD_HW_MODEL)
-    add_subdirectory(hw-model)
+    add_subdirectory(l3-hw-model)
 endif()
 
 if(DEEPSPAN_BUILD_USERLIB)
-    add_subdirectory(userlib)
+    add_subdirectory(l3-userlib)
 endif()
 
 if(DEEPSPAN_BUILD_APPFRAMEWORK)
-    add_subdirectory(appframework)
+    add_subdirectory(l3-appframework)
 endif()
 
 if(DEEPSPAN_BUILD_KERNEL)
     include(ExternalProject)
     ExternalProject_Add(deepspan-kernel
-        SOURCE_DIR  ${CMAKE_SOURCE_DIR}/kernel
-        BINARY_DIR  ${CMAKE_BINARY_DIR}/kernel
+        SOURCE_DIR  ${CMAKE_SOURCE_DIR}/l2-kernel
+        BINARY_DIR  ${CMAKE_BINARY_DIR}/l2-kernel
         CONFIGURE_COMMAND ""
         BUILD_COMMAND
             $(MAKE) -C /lib/modules/$ENV{KVER}/build
-            M=${CMAKE_SOURCE_DIR}/kernel/drivers/deepspan
+            M=${CMAKE_SOURCE_DIR}/l2-kernel/drivers/deepspan
             modules
             CONFIG_DEEPSPAN_TRANSPORT_SIM=y
         INSTALL_COMMAND ""

@@ -17,17 +17,17 @@ DEEPSPAN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export PATH="/usr/local/go/bin:${HOME}/go/bin:${HOME}/.local/bin:${HOME}/.cargo/bin:$PATH"
 
 declare -A LAYER_SCRIPT=(
-    [hw-model]="hw-model/scripts/verify-setup.sh"
-    [userlib]="userlib/scripts/verify-setup.sh"
-    [appframework]="appframework/scripts/verify-setup.sh"
+    [l3-hw-model]="l3-hw-model/scripts/verify-setup.sh"
+    [l3-userlib]="l3-userlib/scripts/verify-setup.sh"
+    [l3-appframework]="l3-appframework/scripts/verify-setup.sh"
     [kernel]="kernel/scripts/verify-setup.sh"
     [firmware]="firmware/scripts/verify-setup.sh"
-    [mgmt-daemon]="mgmt-daemon/scripts/verify-setup.sh"
-    [server]="server/scripts/verify-setup.sh"
+    [l4-mgmt-daemon]="l4-mgmt-daemon/scripts/verify-setup.sh"
+    [l4-server]="l4-server/scripts/verify-setup.sh"
     [sdk]="sdk/scripts/verify-setup.sh"
 )
 
-ALL_LAYERS=(hw-model kernel userlib appframework firmware mgmt-daemon server sdk)
+ALL_LAYERS=(l3-hw-model l2-kernel l3-userlib l3-appframework l2-firmware l4-mgmt-daemon l4-server l6-sdk)
 LAYERS=("${ALL_LAYERS[@]}")
 SKIP_LAYERS=()
 

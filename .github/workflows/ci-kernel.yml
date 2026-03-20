@@ -6,12 +6,12 @@ on:
   push:
     branches: [main]
     paths:
-      - 'kernel/**'
+      - 'l2-kernel/**'
       - '.github/workflows/ci-kernel.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'kernel/**'
+      - 'l2-kernel/**'
 
 jobs:
   kunit:

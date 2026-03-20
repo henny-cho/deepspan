@@ -6,12 +6,12 @@ on:
   push:
     branches: [main]
     paths:
-      - 'sdk/**'
+      - 'l6-sdk/**'
       - '.github/workflows/ci-python.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'sdk/**'
+      - 'l6-sdk/**'
 
 jobs:
   test:

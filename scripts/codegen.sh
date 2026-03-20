@@ -4,7 +4,7 @@
 #
 # Generates Go + Python stubs from proto/deepspan/v1/*.proto using buf.
 # Output:
-#   gen/go/deepspan/v1/          Go protobuf + connect-go stubs
+#   l5-gen/go/deepspan/v1/          Go protobuf + connect-go stubs
 #   gen/python/deepspan/v1/      Python protobuf stubs
 #
 # Usage:
@@ -14,9 +14,9 @@
 set -euo pipefail
 
 DEEPSPAN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROTO_DIR="${DEEPSPAN_ROOT}/proto"
-GEN_GO_DIR="${DEEPSPAN_ROOT}/gen/go"
-GEN_PY_DIR="${DEEPSPAN_ROOT}/gen/python"
+PROTO_DIR="${DEEPSPAN_ROOT}/l5-proto"
+GEN_GO_DIR="${DEEPSPAN_ROOT}/l5-gen/go"
+GEN_PY_DIR="${DEEPSPAN_ROOT}/l5-gen/python"
 export PATH="/usr/local/go/bin:${HOME}/go/bin:${HOME}/.local/bin:$PATH"
 
 GO_ONLY=false
@@ -85,14 +85,14 @@ managed:
   enabled: true
   override:
     - file_option: go_package_prefix
-      value: github.com/myorg/deepspan/gen/go
+      value: github.com/myorg/deepspan/l5-gen/go
 plugins:
   - remote: buf.build/protocolbuffers/go
-    out: ../gen/go
+    out: ../l5-gen/go
     opt:
       - paths=source_relative
   - remote: buf.build/connectrpc/go
-    out: ../gen/go
+    out: ../l5-gen/go
     opt:
       - paths=source_relative
 YAML
@@ -104,14 +104,14 @@ else
 fi
 
 # ── Post-generation: go mod tidy ──────────────────────────────────────────────
-echo "==> Running go mod tidy for gen/go..."
+echo "==> Running go mod tidy for l5-gen/go..."
 (cd "${GEN_GO_DIR}" && go mod tidy)
 
-echo "==> Running go mod tidy for server (depends on gen/go)..."
-(cd "${DEEPSPAN_ROOT}/server" && go mod tidy)
+echo "==> Running go mod tidy for l4-server (depends on l5-gen/go)..."
+(cd "${DEEPSPAN_ROOT}/l4-server" && go mod tidy)
 
-echo "==> Running go mod tidy for mgmt-daemon (depends on gen/go)..."
-(cd "${DEEPSPAN_ROOT}/mgmt-daemon" && go mod tidy)
+echo "==> Running go mod tidy for l4-mgmt-daemon (depends on l5-gen/go)..."
+(cd "${DEEPSPAN_ROOT}/l4-mgmt-daemon" && go mod tidy)
 
 # ── Python post-processing: ensure __init__.py files ─────────────────────────
 if ! $GO_ONLY && [ -d "${GEN_PY_DIR}" ]; then

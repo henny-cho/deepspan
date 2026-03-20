@@ -1,7 +1,7 @@
 go 1.26.1
 
 use (
-	./gen/go
-	./mgmt-daemon
-	./server
+	./l5-gen/go
+	./l4-mgmt-daemon
+	./l4-server
 )

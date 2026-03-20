@@ -9,7 +9,7 @@
 #   sdk            Python hello-world client
 #
 # Firmware (native_sim Zephyr binary) is started automatically if the binary
-# exists at build/firmware/app/zephyr/zephyr.exe; otherwise it is skipped.
+# exists at build/l2-firmware/app/zephyr/zephyr.exe; otherwise it is skipped.
 #
 # Usage:
 #   ./scripts/run-sim.sh             # build all + run
@@ -79,22 +79,22 @@ trap cleanup EXIT INT TERM
 # ── Build step ────────────────────────────────────────────────────────────────
 build_hw_model() {
     log "building hw-model..."
-    cmake -S "${DEEPSPAN_ROOT}/hw-model" \
-          -B "${DEEPSPAN_ROOT}/hw-model/build" \
+    cmake -S "${DEEPSPAN_ROOT}/l3-hw-model" \
+          -B "${DEEPSPAN_ROOT}/l3-hw-model/build" \
           -G Ninja -DCMAKE_BUILD_TYPE=Release \
           -DDEEPSPAN_BUILD_TESTS=OFF \
           >/dev/null
-    cmake --build "${DEEPSPAN_ROOT}/hw-model/build" -j"$(nproc)" >/dev/null
+    cmake --build "${DEEPSPAN_ROOT}/l3-hw-model/build" -j"$(nproc)" >/dev/null
     ok "hw-model built"
 }
 
 build_go_services() {
     log "building Go services (mgmt-daemon, deepspan-accel-server)..."
-    local gen_go="${DEEPSPAN_ROOT}/gen/go"
+    local gen_go="${DEEPSPAN_ROOT}/l5-gen/go"
     if [ -f "${gen_go}/go.mod" ]; then
         (cd "${gen_go}" && go mod tidy 2>/dev/null)
     fi
-    (cd "${DEEPSPAN_ROOT}/mgmt-daemon" && go build -o "${DEEPSPAN_ROOT}/build/bin/mgmt-daemon" ./cmd/mgmt-daemon/)
+    (cd "${DEEPSPAN_ROOT}/l4-mgmt-daemon" && go build -o "${DEEPSPAN_ROOT}/build/bin/mgmt-daemon" ./cmd/mgmt-daemon/)
 
     # The platform server binary has no hwip plugin registered — use the accel
     # server binary from deepspan-accel repo instead.
@@ -128,11 +128,11 @@ fi
 
 # ── Verify binaries exist ─────────────────────────────────────────────────────
 BIN_DIR="${DEEPSPAN_ROOT}/build/bin"
-HW_MODEL_BIN="${DEEPSPAN_ROOT}/hw-model/build/deepspan-hw-model"
-FW_SIM_BIN="${DEEPSPAN_ROOT}/hw-model/build/deepspan-firmware-sim"
+HW_MODEL_BIN="${DEEPSPAN_ROOT}/l3-hw-model/build/deepspan-hw-model"
+FW_SIM_BIN="${DEEPSPAN_ROOT}/l3-hw-model/build/deepspan-firmware-sim"
 MGMT_BIN="${BIN_DIR}/mgmt-daemon"
 SERVER_BIN="${BIN_DIR}/deepspan-accel-server"
-ZEPHYR_BIN="${DEEPSPAN_ROOT}/build/firmware/app/zephyr/zephyr.exe"
+ZEPHYR_BIN="${DEEPSPAN_ROOT}/build/l2-firmware/app/zephyr/zephyr.exe"
 
 [[ -f "${MGMT_BIN}"   ]] || fail "mgmt-daemon binary not found: ${MGMT_BIN}"
 [[ -f "${SERVER_BIN}" ]] || fail "server binary not found: ${SERVER_BIN}"
@@ -159,7 +159,7 @@ if [[ -f "${FW_SIM_BIN}" ]]; then
     ok "firmware_sim started (pid ${PIDS[-1]})"
 else
     warn "firmware_sim binary not found — skipping hw-model interaction demo"
-    warn "  (run: cmake --build hw-model/build to build deepspan-firmware-sim)"
+    warn "  (run: cmake --build l3-hw-model/build to build deepspan-firmware-sim)"
 fi
 
 # ── Start Zephyr native_sim firmware (optional, requires west build) ──────────
