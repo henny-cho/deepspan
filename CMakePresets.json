@@ -80,20 +80,33 @@
       "name": "dev-hwip",
       "inherits": "dev",
       "displayName": "Dev + HWIP Accel",
-      "description": "Userspace + HWIP accel, debug, tests ON",
+      "description": "Userspace + HWIP accel plugin + server, debug, tests ON",
       "cacheVariables": {
         "DEEPSPAN_BUILD_HWIP": "ON",
-        "HWIP_TYPE": "accel"
+        "DEEPSPAN_BUILD_SERVER": "ON",
+        "HWIP_TYPES": "accel"
+      }
+    },
+    {
+      "name": "dev-multi-hwip",
+      "inherits": "dev",
+      "displayName": "Dev + Multiple HWIP types",
+      "description": "Userspace + multiple HWIP plugins + server, debug, tests ON",
+      "cacheVariables": {
+        "DEEPSPAN_BUILD_HWIP": "ON",
+        "DEEPSPAN_BUILD_SERVER": "ON",
+        "HWIP_TYPES": "accel,codec"
       }
     }
   ],
   "buildPresets": [
-    { "name": "dev",           "configurePreset": "dev" },
-    { "name": "dev-submodule", "configurePreset": "dev-submodule" },
-    { "name": "sim",           "configurePreset": "sim" },
-    { "name": "release",       "configurePreset": "release" },
-    { "name": "coverage",      "configurePreset": "coverage" },
-    { "name": "dev-hwip",      "configurePreset": "dev-hwip" }
+    { "name": "dev",            "configurePreset": "dev" },
+    { "name": "dev-submodule",  "configurePreset": "dev-submodule" },
+    { "name": "sim",            "configurePreset": "sim" },
+    { "name": "release",        "configurePreset": "release" },
+    { "name": "coverage",       "configurePreset": "coverage" },
+    { "name": "dev-hwip",       "configurePreset": "dev-hwip" },
+    { "name": "dev-multi-hwip", "configurePreset": "dev-multi-hwip" }
   ],
   "testPresets": [
     {
@@ -116,6 +129,12 @@
     {
       "name": "dev-hwip",
       "configurePreset": "dev-hwip",
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 4 }
+    },
+    {
+      "name": "dev-multi-hwip",
+      "configurePreset": "dev-multi-hwip",
       "output": { "outputOnFailure": true },
       "execution": { "jobs": 4 }
     }

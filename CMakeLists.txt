@@ -4,19 +4,24 @@ project(Deepspan VERSION 0.2.0 LANGUAGES C CXX)
 include(GNUInstallDirs)
 
 # ── Options ───────────────────────────────────────────────────────────
-option(DEEPSPAN_BUILD_HW_MODEL    "Build hw-model simulator"     ON)
-option(DEEPSPAN_BUILD_USERLIB     "Build userlib"                ON)
-option(DEEPSPAN_BUILD_APPFRAMEWORK "Build appframework"          ON)
-option(DEEPSPAN_BUILD_FIRMWARE    "Build Zephyr firmware (West)" OFF)
-option(DEEPSPAN_BUILD_KERNEL      "Build Linux kernel module"    OFF)
-option(DEEPSPAN_BUILD_TESTS       "Build tests"                  ON)
-option(DEEPSPAN_BUILD_HWIP        "Build HWIP implementations"   OFF)
-set(HWIP_TYPE "accel" CACHE STRING "HWIP type to build (accel)")
+option(DEEPSPAN_BUILD_HW_MODEL     "Build hw-model simulator (sim/)"    ON)
+option(DEEPSPAN_BUILD_USERLIB      "Build userlib (runtime/userlib/)"   ON)
+option(DEEPSPAN_BUILD_APPFRAMEWORK "Build appframework (runtime/)"      ON)
+option(DEEPSPAN_BUILD_SERVER       "Build C++20 gRPC server (server/)"  ON)
+option(DEEPSPAN_BUILD_FIRMWARE     "Build Zephyr firmware (West)"       OFF)
+option(DEEPSPAN_BUILD_KERNEL       "Build Linux kernel module"          OFF)
+option(DEEPSPAN_BUILD_TESTS        "Build tests"                        ON)
+option(DEEPSPAN_BUILD_HWIP         "Build HWIP plugin(s)"              OFF)
+# Comma-separated list of HWIP types to build (e.g. "accel,codec").
+# Set HWIP_TYPES to build multiple plugins in one cmake run.
+set(HWIP_TYPES "accel" CACHE STRING "Comma-separated HWIP type(s) to build")
+# Backward-compat single-type alias (deprecated: prefer HWIP_TYPES)
+set(HWIP_TYPE "accel" CACHE STRING "HWIP type to build (use HWIP_TYPES for multi)")
 
 if(DEEPSPAN_BUILD_TESTS)
     enable_testing()
 endif()
-option(DEEPSPAN_USE_SYSTEM_DEPS   "Use Conan/system packages (OFF=submodule)" ON)
+option(DEEPSPAN_USE_SYSTEM_DEPS   "Use system/vcpkg packages (OFF=submodule)" ON)
 
 # ── Dependencies ──────────────────────────────────────────────────────
 if(NOT DEEPSPAN_USE_SYSTEM_DEPS)
@@ -33,35 +38,44 @@ else()
 endif()
 
 # ETL (Embedded Template Library) — firmware/Zephyr only.
-# userlib and appframework use std::expected (C++23) instead.
 if(DEEPSPAN_BUILD_FIRMWARE)
     if(EXISTS "${CMAKE_SOURCE_DIR}/third_party/etl/CMakeLists.txt")
         add_subdirectory(third_party/etl EXCLUDE_FROM_ALL)
     endif()
 endif()
 
-# ── Layer builds ──────────────────────────────────────────────────────
+# gRPC C++ — required by server/ and HWIP plugins.
+if(DEEPSPAN_BUILD_SERVER OR DEEPSPAN_BUILD_HWIP)
+    find_package(gRPC CONFIG REQUIRED)
+    find_package(Protobuf CONFIG REQUIRED)
+endif()
+
+# ── Component builds ──────────────────────────────────────────────────
 if(DEEPSPAN_BUILD_HW_MODEL)
-    add_subdirectory(l3/hw-model)
+    add_subdirectory(sim/hw-model)
 endif()
 
 if(DEEPSPAN_BUILD_USERLIB)
-    add_subdirectory(l3/userlib)
+    add_subdirectory(runtime/userlib)
 endif()
 
 if(DEEPSPAN_BUILD_APPFRAMEWORK)
-    add_subdirectory(l3/appframework)
+    add_subdirectory(runtime/appframework)
+endif()
+
+if(DEEPSPAN_BUILD_SERVER)
+    add_subdirectory(server)
 endif()
 
 if(DEEPSPAN_BUILD_KERNEL)
     include(ExternalProject)
     ExternalProject_Add(deepspan-kernel
-        SOURCE_DIR  ${CMAKE_SOURCE_DIR}/l2/kernel
-        BINARY_DIR  ${CMAKE_BINARY_DIR}/l2/kernel
+        SOURCE_DIR  ${CMAKE_SOURCE_DIR}/kernel
+        BINARY_DIR  ${CMAKE_BINARY_DIR}/kernel
         CONFIGURE_COMMAND ""
         BUILD_COMMAND
             $(MAKE) -C /lib/modules/$ENV{KVER}/build
-            M=${CMAKE_SOURCE_DIR}/l2/kernel/drivers/deepspan
+            M=${CMAKE_SOURCE_DIR}/kernel/drivers/deepspan
             modules
             CONFIG_DEEPSPAN_TRANSPORT_SIM=y
         INSTALL_COMMAND ""
@@ -71,7 +85,19 @@ endif()
 
 if(DEEPSPAN_BUILD_HWIP)
     include(cmake/hwip-plugin.cmake)
-    add_subdirectory(hwip/${HWIP_TYPE})
+    # Support comma-separated HWIP_TYPES list or legacy single HWIP_TYPE.
+    if(HWIP_TYPES AND NOT HWIP_TYPES STREQUAL "accel")
+        string(REPLACE "," ";" _hwip_list "${HWIP_TYPES}")
+    else()
+        set(_hwip_list "${HWIP_TYPE}")
+    endif()
+    foreach(_hwip IN LISTS _hwip_list)
+        if(EXISTS "${CMAKE_SOURCE_DIR}/hwip/${_hwip}/CMakeLists.txt")
+            add_subdirectory("hwip/${_hwip}")
+        else()
+            message(WARNING "HWIP type '${_hwip}' not found at hwip/${_hwip}/")
+        endif()
+    endforeach()
 endif()
 
 # ── Platform install export ───────────────────────────────────────────
