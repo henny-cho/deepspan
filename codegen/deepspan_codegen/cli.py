@@ -15,7 +15,7 @@ from .generators.c_kernel import CKernelGenerator
 from .generators.cpp_hwmodel import CppHwModelGenerator
 from .generators.c_firmware import CFirmwareGenerator
 from .generators.proto import ProtoGenerator
-from .generators.go_opcodes import GoOpcodesGenerator
+from .generators.cpp_opcodes import CppOpcodesGenerator
 from .generators.python_sdk import PythonSdkGenerator
 
 app = typer.Typer(
@@ -25,15 +25,22 @@ app = typer.Typer(
 )
 console = Console()
 
-ALL_TARGETS = ["kernel", "hw_model", "firmware", "proto", "go", "python"]
+# Targets and their output subdirs:
+#   kernel   → gen/kernel/     (C header for Linux driver)
+#   firmware → gen/firmware/   (C header for Zephyr firmware)
+#   hw_model → gen/sim/        (C++20 header for hw-model simulator)
+#   rpc      → gen/rpc/        (C++20 opcode constants, replaces Go go_opcodes)
+#   proto    → gen/proto/      (Protobuf .proto service definition)
+#   python   → gen/sdk/        (Python Pydantic models)
+ALL_TARGETS = ["kernel", "firmware", "hw_model", "rpc", "proto", "python"]
 
 GENERATORS = {
-    "kernel": CKernelGenerator,
-    "hw_model": CppHwModelGenerator,
+    "kernel":   CKernelGenerator,
     "firmware": CFirmwareGenerator,
-    "proto": ProtoGenerator,
-    "go": GoOpcodesGenerator,
-    "python": PythonSdkGenerator,
+    "hw_model": CppHwModelGenerator,
+    "rpc":      CppOpcodesGenerator,
+    "proto":    ProtoGenerator,
+    "python":   PythonSdkGenerator,
 }
 
 

@@ -1,24 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-# Stage 2: proto → Go/Python stubs (buf generate)
-# Stage 1 (hwip.yaml → proto) is done by deepspan-codegen first.
+# buf.gen.yaml — retained for proto lint validation only.
+#
+# C++ gRPC stubs are generated at CMake build time via protobuf_generate().
+# Python stubs are generated via grpc_tools.protoc at SDK install time.
+# Neither is committed to the repository.
+#
+# This file is intentionally minimal; run `buf lint` for proto validation.
 version: v2
-
-managed:
-  enabled: true
-  override:
-    - file_option: go_package_prefix
-      value: github.com/myorg/deepspan/hwip/accel/gen/go
-
-plugins:
-  - local: protoc-gen-go
-    out: accel/gen/go
-    opt:
-      - paths=source_relative
-
-  - local: protoc-gen-connect-go
-    out: accel/gen/go
-    opt:
-      - paths=source_relative
-
-  - remote: buf.build/protocolbuffers/python
-    out: accel/gen/python

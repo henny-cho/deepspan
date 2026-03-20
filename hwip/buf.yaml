@@ -1,15 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
-# Buf workspace configuration for deepspan-hwip.
+# Buf workspace configuration for deepspan-hwip (proto lint only).
 #
-# Stage 1 (hwip.yaml → proto) is done by deepspan-codegen first.
-# Stage 2 (proto → Go/Python stubs) is done by buf generate using this config.
+# Stage 1 (hwip.yaml → gen/proto/) is done by deepspan-codegen.
+# Proto stubs are generated at CMake build time via protobuf_generate()
+# — no buf generate step is needed for C++ or Python.
 #
-# Run both stages: ./scripts/codegen.sh
+# This file is only used for: buf lint (proto validation).
+# Run: buf lint --config hwip/buf.yaml accel/gen/proto/
 version: v2
 
 modules:
-  # Stage 1 output: generated proto files (NOT hand-written accel/proto/)
-  - path: accel/gen/l5-proto
+  # Stage 1 output: generated proto files for each HWIP type.
+  # Add an entry here for each HWIP type that has generated protos.
+  - path: accel/gen/proto
     name: buf.build/myorg/deepspan-accel
 
 lint:
@@ -17,6 +20,7 @@ lint:
     - DEFAULT
   except:
     - FIELD_NOT_REQUIRED
+    - PACKAGE_VERSION_SUFFIX
 
 breaking:
   use:
