@@ -119,6 +119,7 @@ cmd_setup() {
         sudo apt-get install -y --no-install-recommends \
             cmake ninja-build gcc g++ \
             libgrpc++-dev libgrpc-dev \
+            libprotobuf-dev \
             protobuf-compiler protobuf-compiler-grpc \
             libspdlog-dev liburing-dev libgtest-dev
 
