@@ -40,7 +40,7 @@ jobs:
             slug: l4-server
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v6
         with:
@@ -63,7 +63,7 @@ jobs:
 
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: go-coverage-${{ matrix.slug }}
           path: ${{ matrix.module }}/coverage.out
@@ -72,7 +72,7 @@ jobs:
     name: Lint (gate.sh)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v6
         with:

@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 name: CI / C++
 
-
 on:
   push:
     branches: [main]
@@ -31,7 +30,7 @@ jobs:
         preset: [dev, dev-submodule]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -53,6 +52,14 @@ jobs:
         if: matrix.preset == 'dev'
         run: conan profile detect --force
 
+      - name: Install Conan dependencies
+        if: matrix.preset == 'dev'
+        run: |
+          conan install . \
+            --output-folder=build/dev \
+            --build=missing \
+            -s build_type=Debug
+
       - name: Configure CMake (${{ matrix.preset }})
         run: cmake --preset ${{ matrix.preset }}
 
@@ -64,7 +71,8 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: cpp-test-results-${{ matrix.preset }}
           path: build/${{ matrix.preset }}/Testing/
+          if-no-files-found: ignore

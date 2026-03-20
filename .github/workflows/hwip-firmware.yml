@@ -37,7 +37,7 @@ jobs:
     container:
       image: ghcr.io/zephyrproject-rtos/ci-base:v0.27.4
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
       - name: Download platform artifact
         run: |

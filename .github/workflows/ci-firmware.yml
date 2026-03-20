@@ -28,7 +28,7 @@ jobs:
       ZEPHYR_TOOLCHAIN_VARIANT: host
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         with:
           path: deepspan
 
@@ -58,7 +58,7 @@ jobs:
 
       - name: Upload twister results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: twister-results
           path: deepspan/twister-out/
