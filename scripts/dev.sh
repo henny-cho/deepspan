@@ -461,9 +461,8 @@ cmd_lint() {
 # test
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_test() {
-    local no_build=0 preset="dev"
-    local SERVER_ADDR="${SERVER_ADDR:-:8080}"
-    local HW_MODEL_SHM="${HW_MODEL_SHM:-deepspan-sim}"
+    local no_build=0 preset="dev-hwip"
+    local SERVER_ADDR="${SERVER_ADDR:-0.0.0.0:8080}"
     local STARTUP_TIMEOUT=15
 
     while [[ $# -gt 0 ]]; do
@@ -474,19 +473,21 @@ cmd_test() {
                 echo "Usage: $0 test [--no-build] [--preset PRESET]"
                 echo ""
                 echo "Environment overrides:"
-                echo "  SERVER_ADDR   server listen address  (default: :8080)"
-                echo "  HW_MODEL_SHM  POSIX shm name         (default: deepspan-sim)"
+                echo "  SERVER_ADDR   gRPC listen address  (default: 0.0.0.0:8080)"
                 exit 0 ;;
             *) die "Unknown test option: $1" ;;
         esac
     done
+
+    # For dev-hwip preset the accel plugin uses /deepspan_hwip_0 by convention.
+    local HW_MODEL_SHM="deepspan_hwip_0"
 
     local PIDS=()
     cleanup_test() {
         log "shutting down simulation..."
         for pid in "${PIDS[@]}"; do kill "$pid" 2>/dev/null || true; done
         wait 2>/dev/null || true
-        rm -f "/dev/shm/${HW_MODEL_SHM}" 2>/dev/null || true
+        # Shared memory is owned and unlinked by the hw-model on exit.
         log "done"
     }
     trap cleanup_test EXIT INT TERM
@@ -494,6 +495,7 @@ cmd_test() {
     local BUILD_DIR="${DEEPSPAN_ROOT}/build/${preset}"
     local HW_MODEL_BIN="${BUILD_DIR}/sim/hw-model/deepspan-hw-model"
     local SERVER_BIN="${BUILD_DIR}/server/deepspan-server"
+    local PLUGIN_SO="${BUILD_DIR}/hwip/accel/plugin/libhwip_accel.so"
     local ZEPHYR_BIN="${DEEPSPAN_ROOT}/build/firmware/app/zephyr/zephyr.exe"
 
     if [[ $no_build -eq 0 ]]; then
@@ -509,17 +511,19 @@ cmd_test() {
     mkdir -p "${BUILD_DIR}/logs"
     section "test: start simulation stack"
 
+    # 1. hw-model — creates SHM and runs the poll loop
     if [[ -f "${HW_MODEL_BIN}" ]]; then
-        log "starting hw-model (shm: ${HW_MODEL_SHM})..."
+        log "starting hw-model (shm: /${HW_MODEL_SHM})..."
         "${HW_MODEL_BIN}" "--shm-name=/${HW_MODEL_SHM}" \
             >"${BUILD_DIR}/logs/hw-model.log" 2>&1 &
         PIDS+=($!)
         sleep 0.3
         ok "hw-model started (pid ${PIDS[-1]})"
     else
-        warn "hw-model binary not found — skipping"
+        warn "hw-model binary not found — skipping (server will run without HW sim)"
     fi
 
+    # 2. Zephyr firmware_sim (optional)
     if [[ -f "${ZEPHYR_BIN}" ]]; then
         log "starting Zephyr native_sim firmware..."
         "${ZEPHYR_BIN}" >"${BUILD_DIR}/logs/zephyr.log" 2>&1 &
@@ -528,21 +532,37 @@ cmd_test() {
         ok "Zephyr firmware started (pid ${PIDS[-1]})"
     fi
 
+    # 3. deepspan-server — load HWIP plugin if available
+    local PLUGIN_ARG=""
+    if [[ -f "${PLUGIN_SO}" ]]; then
+        PLUGIN_ARG="--hwip-plugin ${PLUGIN_SO}"
+        log "HWIP plugin: ${PLUGIN_SO}"
+    else
+        warn "HWIP plugin .so not found — server will have no HWIP types"
+    fi
+
     log "starting deepspan-server (addr ${SERVER_ADDR})..."
-    "${SERVER_BIN}" --addr "${SERVER_ADDR}" \
+    # shellcheck disable=SC2086
+    "${SERVER_BIN}" --addr "${SERVER_ADDR}" ${PLUGIN_ARG} \
         >"${BUILD_DIR}/logs/server.log" 2>&1 &
     PIDS+=($!)
     ok "deepspan-server started (pid ${PIDS[-1]})"
 
-    local SERVER_PORT="${SERVER_ADDR#:}"
+    local SERVER_PORT="${SERVER_ADDR##*:}"
     wait_port "localhost" "${SERVER_PORT}" "${STARTUP_TIMEOUT}"
 
-    section "test: SDK hello-world"
+    section "test: SDK full-stack E2E (gRPC)"
     local HELLO_SCRIPT="${DEEPSPAN_ROOT}/sdk/examples/hello.py"
+    # Ensure gRPC Python stubs are generated before running hello.py
     if command -v uv &>/dev/null; then
-        (cd "${DEEPSPAN_ROOT}/sdk" && uv run python "${HELLO_SCRIPT}")
+        (cd "${DEEPSPAN_ROOT}/sdk" && uv run --with grpcio-tools python scripts/gen_proto.py) \
+            || die "Proto stub generation failed"
+    fi
+    if command -v uv &>/dev/null; then
+        (cd "${DEEPSPAN_ROOT}/sdk" && \
+            DEEPSPAN_ADDR="localhost:${SERVER_PORT}" uv run python "${HELLO_SCRIPT}")
     else
-        python3 "${HELLO_SCRIPT}"
+        DEEPSPAN_ADDR="localhost:${SERVER_PORT}" python3 "${HELLO_SCRIPT}"
     fi
 
     echo ""

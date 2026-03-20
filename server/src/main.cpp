@@ -36,7 +36,7 @@ void signal_handler(int sig) {
 void print_usage(const char* argv0) {
     std::fprintf(stderr,
                  "Usage: %s [--addr ADDR] [--hwip-plugin PATH]...\n\n"
-                 "  --addr ADDR          gRPC listen address (default: :8080)\n"
+                 "  --addr ADDR          gRPC listen address (default: 0.0.0.0:8080)\n"
                  "  --hwip-plugin PATH   HWIP plugin shared library to load\n",
                  argv0);
 }
@@ -44,7 +44,7 @@ void print_usage(const char* argv0) {
 }  // namespace
 
 int main(int argc, char** argv) {
-    std::string addr = ":8080";
+    std::string addr = "0.0.0.0:8080";
     std::vector<std::string> plugin_paths;
 
     for (int i = 1; i < argc; ++i) {

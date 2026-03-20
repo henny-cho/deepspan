@@ -16,7 +16,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 PROTO_ROOT = REPO_ROOT / "api" / "proto"
-OUT_DIR = REPO_ROOT / "sdk" / "src" / "deepspan" / "_proto"
+# Stubs go into sdk/src/ so generated files land at deepspan/v1/*.py,
+# making cross-imports like `from deepspan.v1 import device_pb2` work.
+OUT_DIR = REPO_ROOT / "sdk" / "src"
 
 PROTO_FILES = [
     "deepspan/v1/device.proto",
@@ -33,7 +35,9 @@ def main() -> int:
         return 1
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    (OUT_DIR / "__init__.py").write_text("# auto-generated\n")
+    # Ensure deepspan/v1/ __init__.py exists so generated stubs are importable.
+    (OUT_DIR / "deepspan" / "v1").mkdir(parents=True, exist_ok=True)
+    (OUT_DIR / "deepspan" / "v1" / "__init__.py").write_text("# auto-generated\n")
 
     for proto_rel in PROTO_FILES:
         ret = protoc.main([

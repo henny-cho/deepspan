@@ -26,7 +26,6 @@ add_dependencies(deepspan-accel-hw-model accel-codegen)
 add_subdirectory(plugin)
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
-if(BUILD_TESTING)
-    enable_testing()
+if(DEEPSPAN_BUILD_TESTS OR BUILD_TESTING)
     add_subdirectory(tests)
 endif()

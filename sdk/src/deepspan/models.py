@@ -32,6 +32,5 @@ class FirmwareInfo:
 @dataclass
 class TelemetrySnapshot:
     device_id: str
-    timestamp_ms: int
-    cpu_usage: float = 0.0
-    mem_usage: float = 0.0
+    uptime_ms: int = 0   # firmware uptime derived from SHM start_time_sec
+    irq_count: int = 0   # hw-model processed command count (irq proxy)

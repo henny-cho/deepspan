@@ -10,7 +10,7 @@ import grpc
 from .models import DeviceInfo, DeviceState, FirmwareInfo, TelemetrySnapshot
 
 try:
-    from deepspan._proto.deepspan.v1 import (  # type: ignore[import]
+    from deepspan.v1 import (  # type: ignore[import]
         device_pb2,
         device_pb2_grpc,
         management_pb2,
@@ -188,7 +188,6 @@ class DeepspanClient:
         snap = resp.snapshot
         return TelemetrySnapshot(
             device_id=snap.device_id,
-            timestamp_ms=snap.timestamp_ms,
-            cpu_usage=snap.cpu_usage,
-            mem_usage=snap.mem_usage,
+            uptime_ms=snap.firmware.uptime_ms,
+            irq_count=snap.kernel.irq_count,
         )

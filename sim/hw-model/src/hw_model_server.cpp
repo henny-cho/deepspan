@@ -28,6 +28,9 @@ bool HwModelServer::init() {
     auto* stats = reinterpret_cast<ShmStats*>(
         static_cast<char*>(transport_.reg_base()) + SHM_STATS_OFFSET);
     __atomic_store_n(&stats->start_time_sec, start_time_sec_, __ATOMIC_RELAXED);
+    // Mark device as READY so plugins can read the state before any command.
+    auto* reg = static_cast<RegMap*>(transport_.reg_base());
+    __atomic_store_n(&reg->status, status_bits::READY, __ATOMIC_RELEASE);
     return true;
 }
 

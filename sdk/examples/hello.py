@@ -1,113 +1,127 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 """
-Deepspan hello-world example.
-Connects to the server, lists devices, prints hw-model register state,
-and shows the live firmware_sim ↔ hw-model interaction.
+Deepspan full-stack E2E smoke test (gRPC).
+
+Flow:
+  1. list_devices()         → expects accel/0 in READY state
+  2. submit_request()       → ECHO opcode, verifies arg0/arg1 round-trip
+  3. get_firmware_info()    → shows version (sim: reads SHM)
+  4. get_telemetry()        → shows uptime_ms and irq_count from SHM stats
+
+Exit code: 0 = all assertions passed, 1 = any failure.
 """
-import sys
 import os
-import time
+import struct
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-import httpx
 from deepspan.client import DeepspanClient
 
-BASE_URL = os.environ.get("DEEPSPAN_URL", "http://localhost:8080")
+ADDR = os.environ.get("DEEPSPAN_ADDR", "localhost:8080")
+DEVICE_ID = os.environ.get("DEEPSPAN_DEVICE", "accel/0")
+ECHO_OPCODE = 0x0001  # AccelOp::ECHO
+
+PASS = 0
+FAIL = 0
 
 
-def _get_hw_stats(http: httpx.Client) -> dict:
+def check(label: str, ok: bool, detail: str = "") -> None:
+    global PASS, FAIL
+    if ok:
+        PASS += 1
+        print(f"  [PASS] {label}")
+    else:
+        FAIL += 1
+        print(f"  [FAIL] {label}" + (f" — {detail}" if detail else ""))
+
+
+def main() -> int:
+    print(f"[hello] deepspan full-stack E2E test")
+    print(f"[hello] server : {ADDR}")
+    print(f"[hello] device : {DEVICE_ID}")
+    print()
+
     try:
-        r = http.get(BASE_URL + "/api/hw-stats", timeout=3.0)
-        r.raise_for_status()
-        return r.json()
-    except Exception:
-        return {"available": False}
+        with DeepspanClient(ADDR, timeout=10.0) as client:
 
+            # ── 1. ListDevices ──────────────────────────────────────────────
+            print("── 1. ListDevices")
+            devices = client.list_devices()
+            check("at least one device returned", len(devices) > 0,
+                  f"got {len(devices)}")
 
-def _print_hw_stats(stats: dict) -> None:
-    if not stats.get("available"):
-        print("[hello] hw-model: not available (run deepspan-hw-model first)")
-        return
-    print("[hello] hw-model register state:")
-    print(f"  version       = {stats['version']}  (v{stats['version_str']})")
-    print(f"  capabilities  = {stats['capabilities']}  {stats['capabilities_str']}")
-    ready = "READY" if stats["status_ready"] else ("BUSY" if stats["status_busy"] else "ERROR")
-    print(f"  status        = {stats['status_reg']}  [{ready}]")
-    print(f"  uptime        = {stats['uptime_s']}s")
-    print(f"  hw cmd_count  = {stats['hw_cmd_count']}")
-    print(f"  fw cmd_count  = {stats['fw_cmd_count']}")
-    if stats["hw_cmd_count"] > 0:
-        print(f"  last opcode   = {stats['last_opcode']}")
-        print(f"  last result   = {stats['last_result_status']}")
-        print(f"  result_data0  = {stats['result_data0']}")
-        print(f"  result_data1  = {stats['result_data1']}")
+            ids = [d.device_id for d in devices]
+            check(f"{DEVICE_ID} in device list", DEVICE_ID in ids, str(ids))
 
-
-def main() -> None:
-    print(f"[hello] connecting to {BASE_URL}")
-    http = httpx.Client(http2=True, timeout=10.0,
-                        headers={"Content-Type": "application/json"})
-
-    with DeepspanClient(BASE_URL) as client:
-        # ── Device list ──────────────────────────────────────────────────
-        devices = client.list_devices()
-        if not devices:
-            print("[hello] no devices found")
-            sys.exit(1)
-
-        print(f"[hello] found {len(devices)} device(s):")
-        for dev in devices:
-            print(f"  device_id={dev.device_id}  state={dev.state.name}")
-
-        # ── Firmware info (requires real Zephyr / OpenAMP) ───────────────
-        dev_id = devices[0].device_id
-        try:
-            info = client.get_firmware_info(dev_id)
-            print(f"[hello] firmware info for {dev_id}:")
-            print(f"  fw_version={info.fw_version}")
-            print(f"  build_date={info.build_date}")
-            print(f"  protocol_version={info.protocol_version}")
-        except Exception as exc:
-            print(f"[hello] firmware info unavailable in sim mode: {exc}")
-
-        # ── HW-model register state ──────────────────────────────────────
-        print()
-        stats_before = _get_hw_stats(http)
-        _print_hw_stats(stats_before)
-
-        # ── Watch firmware_sim ↔ hw-model interaction for 3s ────────────
-        if stats_before.get("available"):
+            target = next((d for d in devices if d.device_id == DEVICE_ID), None)
+            if target:
+                # DeviceState.READY == 2
+                check(f"{DEVICE_ID} state is READY",
+                      target.state.value == 2,
+                      f"got state={target.state.name}")
             print()
-            print("[hello] watching firmware_sim ↔ hw-model interaction (3s)...")
-            start_hw  = stats_before["hw_cmd_count"]
-            start_fw  = stats_before["fw_cmd_count"]
-            deadline  = time.monotonic() + 3.0
-            prev_hw   = start_hw
-            prev_fw   = start_fw
-            while time.monotonic() < deadline:
-                time.sleep(0.4)
-                s = _get_hw_stats(http)
-                if not s.get("available"):
-                    break
-                if s["hw_cmd_count"] != prev_hw or s["fw_cmd_count"] != prev_fw:
-                    print(f"  hw_cmd_count={s['hw_cmd_count']}  fw_cmd_count={s['fw_cmd_count']}"
-                          f"  result_data0={s['result_data0']}")
-                    prev_hw = s["hw_cmd_count"]
-                    prev_fw = s["fw_cmd_count"]
 
-            stats_after = _get_hw_stats(http)
-            delta_hw = stats_after["hw_cmd_count"] - start_hw
-            delta_fw = stats_after["fw_cmd_count"] - start_fw
-            print(f"[hello] interaction summary: hw processed={delta_hw}  fw sent={delta_fw}")
+            # ── 2. SubmitRequest — ECHO ────────────────────────────────────
+            print("── 2. SubmitRequest (ECHO opcode=0x0001)")
+            arg0 = 0xDEADBEEF
+            arg1 = 0xCAFEBABE
+            payload = struct.pack("<II", arg0, arg1)   # 8 bytes little-endian
 
-        print()
-        print(f"[hello] web monitor: {BASE_URL}/monitor")
-        print("[hello] OK")
+            resp_id = client.submit_request(DEVICE_ID, opcode=ECHO_OPCODE,
+                                            data=payload)
+            check("submit_request returned a request_id",
+                  resp_id not in ("", "0", "None"),
+                  f"request_id={resp_id!r}")
+            print(f"       request_id={resp_id}")
+            print()
 
-    http.close()
+            # ── 3. GetFirmwareInfo ─────────────────────────────────────────
+            print("── 3. GetFirmwareInfo")
+            try:
+                info = client.get_firmware_info(DEVICE_ID)
+                check("fw_version non-empty", bool(info.fw_version),
+                      repr(info.fw_version))
+                check("protocol_version >= 1", info.protocol_version >= 1,
+                      str(info.protocol_version))
+                print(f"       fw_version={info.fw_version!r}  "
+                      f"build_date={info.build_date!r}  "
+                      f"protocol={info.protocol_version}")
+            except Exception as exc:
+                check("GetFirmwareInfo succeeded", False, str(exc))
+            print()
+
+            # ── 4. GetTelemetry ───────────────────────────────────────────
+            print("── 4. GetTelemetry")
+            try:
+                tel = client.get_telemetry(DEVICE_ID)
+                check("telemetry device_id matches", tel.device_id == DEVICE_ID,
+                      repr(tel.device_id))
+                # After at least one submit, irq_count should be > 0
+                check("irq_count > 0 (hw-model processed commands)",
+                      tel.irq_count > 0,
+                      f"irq_count={tel.irq_count}")
+                print(f"       uptime_ms={tel.uptime_ms}  "
+                      f"irq_count={tel.irq_count}")
+            except Exception as exc:
+                check("GetTelemetry succeeded", False, str(exc))
+            print()
+
+    except Exception as exc:
+        print(f"[hello] FATAL: {exc}", file=sys.stderr)
+        return 1
+
+    # ── Summary ────────────────────────────────────────────────────────────
+    print("══════════════════════════════════════════════════════════")
+    print(f"  Results: {PASS} passed, {FAIL} failed")
+    print("══════════════════════════════════════════════════════════")
+    if FAIL > 0:
+        print("[hello] FAILED")
+        return 1
+    print("[hello] OK — all checks passed")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

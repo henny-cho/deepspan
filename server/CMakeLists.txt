@@ -79,6 +79,10 @@ target_link_libraries(deepspan-server
         dl          # for dlopen/dlclose in registry.cpp
 )
 
+# Export all symbols from the server executable so dlopen'd HWIP plugins
+# (e.g. libhwip_accel.so) can resolve HwipRegistry and other server-side symbols.
+target_link_options(deepspan-server PRIVATE -Wl,-export-dynamic)
+
 # ── Install ───────────────────────────────────────────────────────────────────
 install(TARGETS deepspan-server
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}

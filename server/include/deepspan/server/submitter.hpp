@@ -40,7 +40,8 @@ public:
     /// @returns        SubmitResult on success; throws std::runtime_error on failure
     virtual SubmitResult submit(uint32_t opcode, std::vector<uint8_t> data) = 0;
 
-    /// Return current device state (0 = unspecified, 1 = ready, 2 = busy, ...).
+    /// Return current device state as proto DeviceState int value
+    /// (UNKNOWN=0, INITIALIZING=1, READY=2).
     virtual int device_state() const = 0;
 
     /// Return the device_id this instance handles.

@@ -7,38 +7,35 @@
 ## 레이어 의존 관계
 
 ```
-  [Python SDK]              l6/sdk
-       │ ConnectRPC (HTTP/2)
-  [Go Server]               l4/server
-       │ CGo
-  [C++ appframework]        l3/appframework
+  [Python SDK]              sdk/
+       │ gRPC (binary, port 50051)
+  [C++20 gRPC Server]       server/
+       │ dlopen
+  [HWIP plugin]             hwip/accel/plugin/  · Submitter 인터페이스
        │
-  [C++ userlib]             l3/userlib
+  [C++ appframework]        runtime/appframework/
+       │
+  [C++ userlib]             runtime/userlib/
        │
     ┌──┴──────────────────────────────────────────────────┐
-    │  HW 경로 (실제 하드웨어)      Sim 경로 (시뮬레이션)      │
-    │  l2/kernel (Linux kmod)       l3/hw-model (C++)         │
-    │  l2/firmware (Zephyr)         POSIX 공유 메모리 MMIO sim │
+    │  HW 경로 (실제 하드웨어)      Sim 경로 (시뮬레이션)  │
+    │  kernel/ (Linux virtio)       sim/hw-model/ (C++)    │
+    │  firmware/ (Zephyr)           POSIX 공유 메모리 MMIO │
     └─────────────────────────────────────────────────────┘
-       │
-  [HWIP plugin]             hwip/accel/l4-plugin · hwip.Submitter
 ```
 
-### 레이어별 역할
+### 컴포넌트별 역할
 
-| 레이어 | 디렉토리 | 언어 | 역할 |
-|--------|---------|------|------|
-| L2 | `l2/firmware` | C++20 + Zephyr | 디바이스 사이드 ETL FSM, VirtIO transport |
-| L2 | `l2/kernel` | C (Linux) | 호스트 사이드 virtio 마스터 드라이버, io_uring |
-| L3 | `l3/hw-model` | C++17 | FPGA MMIO 시뮬레이터 — `l2` 전체를 대체 |
-| L3 | `l3/userlib` | C++23 | ioctl / mmap / io_uring 래퍼 (실 HW 경로) |
-| L3 | `l3/appframework` | C++23 | DevicePool, CircuitBreaker, SessionManager |
-| L4 | `l4/server` | Go | ConnectRPC 서버, hwip.Submitter 디스패치 |
-| L4 | `l4/mgmt-daemon` | Go | OpenAMP 관리 데몬 |
-| L5 | `l5/proto` | Protobuf | API 정의 |
-| L5 | `l5/gen` | Go + Python | buf 생성 ConnectRPC 스텁 |
-| L6 | `l6/sdk` | Python | Pydantic v2 클라이언트 |
-| HWIP | `hwip/accel` | Go + C++ | Accelerator HWIP 플러그인 |
+| 컴포넌트 | 디렉토리 | 언어 | 역할 |
+|----------|---------|------|------|
+| Zephyr 펌웨어 | `firmware/` | C + Zephyr | 디바이스 사이드 ETL FSM, VirtIO transport |
+| Linux 커널 드라이버 | `kernel/` | C (Linux) | 호스트 사이드 virtio 마스터 드라이버, io_uring URING_CMD |
+| MMIO 시뮬레이터 | `sim/hw-model/` | C++17 | FPGA MMIO 시뮬레이터 — firmware + kernel 전체를 대체 |
+| C++ userlib | `runtime/userlib/` | C++20 | ioctl / mmap / io_uring 래퍼 (실 HW 경로) |
+| C++ appframework | `runtime/appframework/` | C++20 | DevicePool, CircuitBreaker, SessionManager |
+| gRPC 서버 | `server/` | C++20 | HwipService · ManagementService · TelemetryService |
+| Python SDK | `sdk/` | Python | grpcio 클라이언트 (DeepspanClient) |
+| HWIP accel 플러그인 | `hwip/accel/plugin/` | C++20 | AccelPlugin — SHM MMIO Submitter (.so) |
 
 ---
 
@@ -47,53 +44,92 @@
 ### HW 경로 (실제 FPGA/ASIC)
 
 ```
-l6/sdk (Python)
-    │ HTTP/2 ConnectRPC
-l4/server (Go)
-    │ CGo
-l3/appframework → l3/userlib
+sdk/ (Python)
+    │ gRPC binary
+server/ (C++20)
+    │ dlopen libhwip_accel.so
+hwip/accel/plugin/ AccelPlugin
     │ ioctl / io_uring URING_CMD
-l2/kernel (Linux kmod: /dev/hwipN)
+kernel/ (Linux kmod: /dev/hwipN)
     │ VirtIO virtqueue (PCIe)
-l2/firmware (Zephyr on FPGA)
+firmware/ (Zephyr on FPGA)
     │ MMIO 레지스터
 FPGA/ASIC 하드웨어
 ```
 
-### Sim 경로 (l2 대체)
+### Sim 경로 (firmware + kernel 대체)
 
 ```
-l6/sdk (Python)
-    │ HTTP/2 ConnectRPC
-l4/server (Go)
-    │ CGo
-l3/appframework → l3/userlib
-    │ POSIX 공유 메모리 (shm_open)
-l3/hw-model (C++)          ← l2/kernel + l2/firmware 역할 전담
-    │ 메모리 내 MMIO 레지스터 시뮬레이션
-hwip/accel ShmClient
+sdk/ (Python)
+    │ gRPC binary
+server/ (C++20)
+    │ dlopen libhwip_accel.so
+hwip/accel/plugin/ AccelPlugin
+    │ POSIX shm_open("/deepspan_hwip_N") + atomic CTRL.START polling
+sim/hw-model/ (C++17)       ← firmware + kernel 역할 전담
+    │ 메모리 내 MMIO 레지스터 시뮬레이션 (100 µs poll loop)
+hwip/accel/hw-model/ accel opcode 핸들러
 ```
 
-`l3/hw-model`은 `l2/firmware`와 `l2/kernel` 쌍 전체를 대체한다.
-동일한 `l4/server`가 두 경로를 모두 지원하며 경로 전환은 설정으로만 결정된다.
+`sim/hw-model`은 `firmware`와 `kernel` 쌍 전체를 대체한다.
+동일한 `server/`가 두 경로를 모두 지원하며 경로 전환은 설정(플러그인 .so)으로만 결정된다.
 
 ---
 
-## hwip.Submitter 인터페이스
+## Submitter 인터페이스
 
-`l4/server`는 `pkg/hwip.Submitter` 인터페이스 하나로 HWIP 플러그인을 추상화한다.
+`server/`는 `deepspan::server::Submitter` 인터페이스 하나로 HWIP 플러그인을 추상화한다.
 
-```go
-// l4/server/pkg/hwip/submitter.go
-type Submitter interface {
-    Info() SubmitterInfo           // HWIP 타입 메타데이터
-    Submit(ctx context.Context, req *SubmitRequest) (*SubmitResponse, error)
-    Close() error
-}
+```cpp
+// server/include/deepspan/server/submitter.hpp
+class Submitter {
+public:
+    virtual SubmitResult submit(uint32_t opcode,
+                                std::vector<uint8_t> data) = 0;
+    virtual int device_state() const = 0;
+    virtual std::string_view device_id() const = 0;
+};
 ```
 
-HWIP 플러그인(`hwip/accel/l4-plugin`)은 이 인터페이스만 구현하면 서버에 등록된다.
-서버는 플러그인 타입을 알 필요 없이 Submitter를 통해 HW 요청을 디스패치한다.
+플러그인(`hwip/accel/plugin/`)은 이 인터페이스만 구현하면 서버에 등록된다.
+서버는 시작 시 `--hwip-plugin <path>.so`를 `dlopen`하며, `.so` 안의 정적 `AccelRegistrar` 객체가
+`HwipRegistry::register_type("accel", factory_fn)` 을 자동 호출한다.
+
+---
+
+## SHM MMIO 통신 프로토콜
+
+플러그인(AccelPlugin)과 hw-model(HwModelServer) 사이의 통신 계약:
+
+```
+SHM name:   /deepspan_hwip_<device_index>   (예: /deepspan_hwip_0)
+SHM size:   4096 bytes (1 page)
+
+Offset 0x000 ~ 0x1FF: RegMap (512 bytes)
+  0x000: ctrl          (bit1 = CTRL.START)
+  0x004: status        (bit0 = STATUS.READY)
+  0x008: irq_status    (bit0 = IRQ.DONE)
+  0x010: version       (HW_VERSION read-only)
+  0x100: cmd_opcode
+  0x104: cmd_arg0
+  0x108: cmd_arg1
+  0x110: result_status
+  0x114: result_data0
+  0x118: result_data1
+
+Offset 0x200 ~ 0x231: ShmStats (telemetry)
+  +0:  cmd_count         uint64   (hw-model 처리 커맨드 수)
+  +8:  start_time_sec    uint64   (hw-model 시작 시각, Unix epoch)
+  +16: last_opcode       uint32
+  +20: last_result_status uint32
+  +24: fw_cmd_count      uint64   (firmware_sim 커맨드 수)
+
+Submit 프로토콜 (AccelPlugin → HwModelServer):
+  1) cmd_opcode/arg0/arg1 쓰기 (relaxed)
+  2) __atomic_or_fetch(&ctrl, CTRL_START, RELEASE)
+  3) while (__atomic_load_n(&ctrl, ACQUIRE) & CTRL_START) usleep(100)
+  4) result_data0/1 읽기 (acquire)
+```
 
 ---
 
@@ -105,48 +141,21 @@ HWIP 플러그인(`hwip/accel/l4-plugin`)은 이 인터페이스만 구현하면
 ```
 hwip/accel/hwip.yaml
     │
-    ▼ Stage 1: deepspan-codegen (tools/deepspan-codegen)
-    ├── gen/l1-kernel/deepspan_accel.h          C (커널 · 펌웨어 공용)
-    ├── gen/l2-firmware/deepspan_accel/dispatch.h  Zephyr opcode dispatch
-    ├── gen/l3-cpp/deepspan_accel/ops.hpp        C++17 hw-model 열거형 + ops
-    ├── gen/l4-rpc/deepspan_accel/opcodes.go     Go opcode 상수
-    ├── gen/l5-proto/deepspan_accel/v1/device.proto  Protobuf 서비스 정의
-    └── gen/l6-sdk/deepspan_accel/models.py      Python Pydantic v2 모델
-            │
-            ▼ Stage 2: buf generate (buf.yaml / buf.gen.yaml)
-            gen/go/      Go ConnectRPC 스텁 (서버 + 클라이언트)
-            gen/python/  Python protobuf 스텁
+    ▼ deepspan-codegen (codegen/)
+    ├── gen/kernel/deepspan_accel.h         C (커널 · 펌웨어 공용)
+    ├── gen/firmware/deepspan_accel/        Zephyr opcode dispatch
+    ├── gen/sim/deepspan_accel/ops.hpp      C++17 hw-model 열거형 + RegOffsets
+    ├── gen/rpc/accel.hpp                   C++20 RPC opcode 매핑
+    ├── gen/proto/deepspan_accel/v1/        Protobuf 서비스 정의
+    └── gen/sdk/deepspan_accel/models.py    Python Pydantic v2 모델
 ```
 
 재생성:
 ```bash
-./scripts/codegen.sh --hwip          # Stage 1 + 2
-./scripts/codegen.sh --hwip --check  # stale 검사 (CI용)
+cd codegen && uv run deepspan-codegen --hwip hwip/accel/hwip.yaml --out hwip/accel/gen
 ```
 
 생성된 아티팩트는 커밋되어 레포에 포함된다.
-`ci-codegen.yml`이 매 push마다 stale 여부를 검증한다.
-
----
-
-## Go 모듈 구조
-
-루트 `go.work`가 7개 Go 모듈을 단일 워크스페이스로 묶는다.
-`replace` 지시자 없이 monorepo 내 cross-module 참조가 가능하다.
-
-```
-go.work
-├── use ./l5/gen/go              github.com/myorg/deepspan/l5/gen
-├── use ./l4/mgmt-daemon         github.com/myorg/deepspan/l4/mgmt-daemon
-├── use ./l4/server              github.com/myorg/deepspan/l4/server
-├── use ./hwip/accel/gen/go      github.com/myorg/deepspan/hwip/accel/gen/go
-├── use ./hwip/accel/l4-plugin   github.com/myorg/deepspan/hwip/accel/l4-plugin
-├── use ./hwip/shared/testutils  github.com/myorg/deepspan/hwip/shared/testutils
-└── use ./hwip/demo              github.com/myorg/deepspan/hwip/demo
-```
-
-> **주의:** hwip go.mod의 `v0.0.0-00010101000000-000000000000` 버전은 `replace` 지시자가 필수다.
-> go.work `use()` 만으로는 Go의 버전 유효성 검사를 통과하지 못한다.
 
 ---
 
@@ -159,22 +168,15 @@ cp -r hwip/accel/ hwip/crypto/
 # 2. hwip.yaml 편집 (레지스터 맵, opcode 정의)
 vi hwip/crypto/hwip.yaml
 
-# 3. 코드 생성 (Stage 1 + 2)
-./scripts/codegen.sh --hwip crypto
+# 3. 코드 생성
+cd codegen && uv run deepspan-codegen --hwip hwip/crypto/hwip.yaml --out hwip/crypto/gen
 
-# 4. hwip.Submitter 구현
-vi hwip/crypto/l4-plugin/cryptoservice.go
+# 4. AccelPlugin 참조하여 CryptoPlugin 구현
+vi hwip/crypto/plugin/crypto_plugin.cpp
 
-# 5. go.work에 새 모듈 추가
-go work use ./hwip/crypto/l4-plugin
-go work use ./hwip/crypto/gen/go
-
-# 6. CMakePresets.json에 preset 추가
+# 5. CMakePresets.json에 preset 추가
 #   { "name": "dev-crypto", "inherits": "dev",
 #     "cacheVariables": { "DEEPSPAN_BUILD_HWIP": "ON", "HWIP_TYPE": "crypto" } }
-
-# 7. l4/server에 플러그인 등록 (서버 초기화 코드)
-#   server.RegisterSubmitter(crypto.NewSubmitter(...))
 ```
 
 ---
@@ -183,11 +185,12 @@ go work use ./hwip/crypto/gen/go
 
 ```
 CMakeLists.txt (루트)
-├── l3/hw-model/          — POSIX shm MMIO 시뮬레이터
-├── l3/userlib/           — io_uring 래퍼
-├── l3/appframework/      — DevicePool · CircuitBreaker
-└── hwip/${HWIP_TYPE}/    — DEEPSPAN_BUILD_HWIP=ON 시 추가
-    └── hwip/accel/       — C++ hw-model ops (gen/l3-cpp 활용)
+├── sim/hw-model/          — POSIX shm MMIO 시뮬레이터 (deepspan_hw_model)
+├── runtime/userlib/       — io_uring 래퍼
+├── runtime/appframework/  — DevicePool · CircuitBreaker
+├── server/                — C++20 gRPC 서버 (deepspan-server)
+└── hwip/${HWIP_TYPE}/     — DEEPSPAN_BUILD_HWIP=ON 시 추가
+    └── hwip/accel/        — hw-model ops + plugin .so + E2E tests
 ```
 
 | Preset | 설명 |
@@ -201,4 +204,4 @@ CMakeLists.txt (루트)
 
 ---
 
-> 최종 업데이트: 2026-03-20
+> 최종 업데이트: 2026-03-21 — C++20 마이그레이션 완료 (Go→C++, l*-prefix→semantic 디렉토리, gRPC 서버)
