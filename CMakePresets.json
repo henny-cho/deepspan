@@ -75,6 +75,16 @@
         "CMAKE_CXX_FLAGS": "--coverage",
         "CMAKE_C_FLAGS": "--coverage"
       }
+    },
+    {
+      "name": "dev-hwip",
+      "inherits": "dev",
+      "displayName": "Dev + HWIP Accel",
+      "description": "Userspace + HWIP accel, debug, tests ON",
+      "cacheVariables": {
+        "DEEPSPAN_BUILD_HWIP": "ON",
+        "HWIP_TYPE": "accel"
+      }
     }
   ],
   "buildPresets": [
@@ -82,7 +92,8 @@
     { "name": "dev-submodule", "configurePreset": "dev-submodule" },
     { "name": "sim",           "configurePreset": "sim" },
     { "name": "release",       "configurePreset": "release" },
-    { "name": "coverage",      "configurePreset": "coverage" }
+    { "name": "coverage",      "configurePreset": "coverage" },
+    { "name": "dev-hwip",      "configurePreset": "dev-hwip" }
   ],
   "testPresets": [
     {

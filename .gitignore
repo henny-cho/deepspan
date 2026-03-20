@@ -33,13 +33,13 @@ gen/python/
 *.log
 
 # Kernel module
-kernel/**/*.mod
-kernel/**/*.cmd
-kernel/**/*.ko
-kernel/**/*.mod.c
-kernel/**/**.o
-kernel/**/**.order
-kernel/**/**.symvers
+**/kernel/**/*.mod
+**/kernel/**/**.cmd
+**/kernel/**/*.ko
+**/kernel/**/*.mod.c
+**/kernel/**/**.o
+**/kernel/**/**.order
+**/kernel/**/**.symvers
 
 # IDE
 .vscode/

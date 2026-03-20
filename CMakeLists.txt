@@ -10,6 +10,8 @@ option(DEEPSPAN_BUILD_APPFRAMEWORK "Build appframework"          ON)
 option(DEEPSPAN_BUILD_FIRMWARE    "Build Zephyr firmware (West)" OFF)
 option(DEEPSPAN_BUILD_KERNEL      "Build Linux kernel module"    OFF)
 option(DEEPSPAN_BUILD_TESTS       "Build tests"                  ON)
+option(DEEPSPAN_BUILD_HWIP        "Build HWIP implementations"   OFF)
+set(HWIP_TYPE "accel" CACHE STRING "HWIP type to build (accel)")
 
 if(DEEPSPAN_BUILD_TESTS)
     enable_testing()
@@ -40,31 +42,36 @@ endif()
 
 # ── Layer builds ──────────────────────────────────────────────────────
 if(DEEPSPAN_BUILD_HW_MODEL)
-    add_subdirectory(l3-hw-model)
+    add_subdirectory(l3/hw-model)
 endif()
 
 if(DEEPSPAN_BUILD_USERLIB)
-    add_subdirectory(l3-userlib)
+    add_subdirectory(l3/userlib)
 endif()
 
 if(DEEPSPAN_BUILD_APPFRAMEWORK)
-    add_subdirectory(l3-appframework)
+    add_subdirectory(l3/appframework)
 endif()
 
 if(DEEPSPAN_BUILD_KERNEL)
     include(ExternalProject)
     ExternalProject_Add(deepspan-kernel
-        SOURCE_DIR  ${CMAKE_SOURCE_DIR}/l2-kernel
-        BINARY_DIR  ${CMAKE_BINARY_DIR}/l2-kernel
+        SOURCE_DIR  ${CMAKE_SOURCE_DIR}/l2/kernel
+        BINARY_DIR  ${CMAKE_BINARY_DIR}/l2/kernel
         CONFIGURE_COMMAND ""
         BUILD_COMMAND
             $(MAKE) -C /lib/modules/$ENV{KVER}/build
-            M=${CMAKE_SOURCE_DIR}/l2-kernel/drivers/deepspan
+            M=${CMAKE_SOURCE_DIR}/l2/kernel/drivers/deepspan
             modules
             CONFIG_DEEPSPAN_TRANSPORT_SIM=y
         INSTALL_COMMAND ""
         BUILD_ALWAYS TRUE
     )
+endif()
+
+if(DEEPSPAN_BUILD_HWIP)
+    include(DeepspanHwip)
+    add_subdirectory(hwip/${HWIP_TYPE})
 endif()
 
 # ── Platform install export ───────────────────────────────────────────

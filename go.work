@@ -1,7 +1,11 @@
 go 1.26.1
 
 use (
-	./l5-gen/go
-	./l4-mgmt-daemon
-	./l4-server
+	./l5/gen/go
+	./l4/mgmt-daemon
+	./l4/server
+	./hwip/accel/gen/go
+	./hwip/accel/l4-plugin
+	./hwip/shared/testutils
+	./hwip/demo
 )

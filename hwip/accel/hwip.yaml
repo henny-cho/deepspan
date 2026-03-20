@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: Apache-2.0
+# deepspan-hwip/accel/hwip.yaml — single source of truth for accel HWIP API
+#
+# This file is the authoritative definition of the accel HWIP interface.
+# Run `deepspan-codegen generate --descriptor hwip.yaml --out gen/` to
+# regenerate all language artifacts in gen/.
+
+hwip:
+  name: accel
+  version: "1.0.0"
+  namespace: deepspan_accel
+
+platform_registers:              # deepspan::hw_model::RegMap layout
+  total_size: 0x200
+  control_bank:
+    - { name: ctrl,         offset: 0x000, size: 32, access: rw,
+        bits: [{name: RESET, pos: 0}, {name: START, pos: 1}, {name: IRQ_CLR, pos: 2}],
+        doc: "Control register" }
+    - { name: status,       offset: 0x004, size: 32, access: ro,
+        bits: [{name: READY, pos: 0}, {name: BUSY, pos: 1}, {name: ERROR, pos: 2}],
+        doc: "Status register" }
+    - { name: irq_status,   offset: 0x008, size: 32, access: w1c,
+        bits: [{name: DONE, pos: 0}],
+        doc: "IRQ status (write-1-to-clear)" }
+    - { name: irq_enable,   offset: 0x00C, size: 32, access: rw,
+        bits: [{name: DONE, pos: 0}],
+        doc: "IRQ enable mask" }
+    - { name: version,      offset: 0x010, size: 32, access: ro,
+        doc: "Hardware version register (major<<16 | minor)" }
+    - { name: capabilities, offset: 0x014, size: 32, access: ro,
+        bits: [{name: DMA, pos: 0}, {name: IRQ, pos: 1}, {name: MULTI, pos: 2}],
+        doc: "Hardware capability flags" }
+  command_bank:
+    - { name: cmd_opcode, offset: 0x100, size: 32, access: wo,
+        doc: "Command opcode register" }
+    - { name: cmd_arg0,   offset: 0x104, size: 32, access: wo,
+        doc: "Command argument 0" }
+    - { name: cmd_arg1,   offset: 0x108, size: 32, access: wo,
+        doc: "Command argument 1" }
+    - { name: cmd_flags,  offset: 0x10C, size: 32, access: wo,
+        doc: "Command flags (DMA mode, IRQ enable, etc.)" }
+  result_bank:
+    - { name: result_status, offset: 0x110, size: 32, access: ro,
+        doc: "Result status code" }
+    - { name: result_data0,  offset: 0x114, size: 32, access: ro,
+        doc: "Result data word 0" }
+    - { name: result_data1,  offset: 0x118, size: 32, access: ro,
+        doc: "Result data word 1" }
+
+operations:
+  - name: echo
+    opcode: 0x0001
+    proto_enum_value: 1
+    doc: "Echo arg0/arg1 back as result — latency test"
+    request:
+      encoding: fixed_args
+      fields:
+        - { name: arg0, type: u32 }
+        - { name: arg1, type: u32 }
+    response:
+      fields:
+        - { name: data0, type: u32, maps_to: result_data0 }
+        - { name: data1, type: u32, maps_to: result_data1 }
+
+  - name: process
+    opcode: 0x0002
+    proto_enum_value: 2
+    doc: "Run data processing pipeline"
+    request:
+      encoding: dma_bytes
+      fields:
+        - { name: data, type: bytes, max_bytes: 4096 }
+    response:
+      fields:
+        - { name: result, type: bytes }
+
+  - name: status
+    opcode: 0x0003
+    proto_enum_value: 3
+    doc: "Return device status word"
+    request:
+      encoding: fixed_args
+      fields: []
+    response:
+      fields:
+        - { name: status_word, type: u32, maps_to: result_data0 }

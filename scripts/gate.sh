@@ -4,15 +4,17 @@
 #
 # Commands:
 #   build    — verify every layer builds (delegates to verify-build.sh)
-#   lint     — go lint for all Go modules
+#   lint     — go lint for all Go modules (platform + hwip)
 #   test     — full-stack simulation test (delegates to run-sim.sh)
+#   validate — 7-check generated artifact validation (hwip/scripts/validate.sh)
 #   setup    — install toolchains + verify (setup-all.sh + verify-setup.sh)
 #
 # Usage:
-#   ./scripts/gate.sh build [--layers l4-server,l4-mgmt-daemon] [--skip firmware]
-#   ./scripts/gate.sh lint  [--module l4-server]
-#   ./scripts/gate.sh test  [--no-build]
-#   ./scripts/gate.sh setup [--layers go] [--skip firmware]
+#   ./scripts/gate.sh build    [--layers l4/server,l4/mgmt-daemon] [--skip firmware]
+#   ./scripts/gate.sh lint     [--module l4/server] [--hwip]
+#   ./scripts/gate.sh test     [--no-build]
+#   ./scripts/gate.sh validate [--hwip accel] [--fix]
+#   ./scripts/gate.sh setup    [--layers go] [--skip firmware]
 #
 # Exit code: 0 = all checks passed, 1 = failure
 
@@ -33,10 +35,11 @@ usage() {
 Usage: $0 <command> [options]
 
 Commands:
-  build   [--layers L1,L2] [--skip L1]   Build verification (verify-build.sh)
-  lint    [--module <mod>]                Go lint (golangci-lint)
-  test    [--no-build]                    Full-stack sim test (run-sim.sh)
-  setup   [--layers L1,L2] [--skip L1]   Dev env setup (setup-all.sh + verify-setup.sh)
+  build    [--layers L1,L2] [--skip L1]          Build verification (verify-build.sh)
+  lint     [--module <mod>] [--hwip]              Go lint (golangci-lint)
+  test     [--no-build]                           Full-stack sim test (run-sim.sh)
+  validate [--hwip <type>] [--fix]               HWIP artifact validation (validate.sh)
+  setup    [--layers L1,L2] [--skip L1]          Dev env setup (setup-all.sh + verify-setup.sh)
 EOF
     exit "${1:-0}"
 }
@@ -52,9 +55,11 @@ cmd_build() {
 # ── lint ──────────────────────────────────────────────────────────────────────
 cmd_lint() {
     local module=""
+    local include_hwip=false
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --module) module="$2"; shift 2 ;;
+            --hwip)   include_hwip=true; shift ;;
             *) die "Unknown lint option: $1" ;;
         esac
     done
@@ -72,7 +77,10 @@ cmd_lint() {
     if [[ -n "$module" ]]; then
         modules=("$module")
     else
-        modules=(l4-mgmt-daemon l4-server)
+        modules=(l4/mgmt-daemon l4/server)
+        if $include_hwip; then
+            modules+=(hwip/accel/l4-plugin hwip/demo)
+        fi
     fi
 
     local fail_count=0
@@ -91,6 +99,12 @@ cmd_lint() {
     ok "all modules passed lint"
 }
 
+# ── validate ──────────────────────────────────────────────────────────────────
+cmd_validate() {
+    log "gate: validate"
+    exec "${SCRIPT_DIR}/../hwip/scripts/validate.sh" "$@"
+}
+
 # ── test ──────────────────────────────────────────────────────────────────────
 cmd_test() {
     log "gate: test"
@@ -107,10 +121,11 @@ cmd_setup() {
 
 # ── Dispatch ──────────────────────────────────────────────────────────────────
 case "$COMMAND" in
-    build)  cmd_build  "$@" ;;
-    lint)   cmd_lint   "$@" ;;
-    test)   cmd_test   "$@" ;;
-    setup)  cmd_setup  "$@" ;;
+    build)    cmd_build    "$@" ;;
+    lint)     cmd_lint     "$@" ;;
+    test)     cmd_test     "$@" ;;
+    validate) cmd_validate "$@" ;;
+    setup)    cmd_setup    "$@" ;;
     help|-h|--help) usage 0 ;;
     *) warn "Unknown command: $COMMAND"; usage 1 ;;
 esac

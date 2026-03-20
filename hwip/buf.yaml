@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# Buf workspace configuration for deepspan-hwip.
+#
+# Stage 1 (hwip.yaml → proto) is done by deepspan-codegen first.
+# Stage 2 (proto → Go/Python stubs) is done by buf generate using this config.
+#
+# Run both stages: ./scripts/codegen.sh
+version: v2
+
+modules:
+  # Stage 1 output: generated proto files (NOT hand-written accel/proto/)
+  - path: accel/gen/l5-proto
+    name: buf.build/myorg/deepspan-accel
+
+lint:
+  use:
+    - DEFAULT
+  except:
+    - FIELD_NOT_REQUIRED
+
+breaking:
+  use:
+    - FILE
