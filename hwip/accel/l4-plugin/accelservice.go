@@ -9,8 +9,8 @@ import (
 
 	"connectrpc.com/connect"
 
-	v1 "github.com/myorg/deepspan-hwip/accel/gen/go/deepspan_accel/v1"
-	"github.com/myorg/deepspan-hwip/accel/gen/go/deepspan_accel/v1/deepspan_accelv1connect"
+	v1 "github.com/myorg/deepspan/hwip/accel/gen/go/deepspan_accel/v1"
+	"github.com/myorg/deepspan/hwip/accel/gen/go/deepspan_accel/v1/deepspan_accelv1connect"
 	"github.com/myorg/deepspan/l4/server/pkg/hwip"
 )
 

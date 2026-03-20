@@ -112,6 +112,12 @@
       "name": "coverage",
       "configurePreset": "coverage",
       "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "dev-hwip",
+      "configurePreset": "dev-hwip",
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 4 }
     }
   ]
 }

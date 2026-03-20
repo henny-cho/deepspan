@@ -4,7 +4,7 @@ package accel_test
 import (
 	"testing"
 
-	accel "github.com/myorg/deepspan-hwip/accel/l4-plugin"
+	accel "github.com/myorg/deepspan/hwip/accel/l4-plugin"
 	"github.com/myorg/deepspan/l4/server/pkg/hwip"
 )
 

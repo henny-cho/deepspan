@@ -6,18 +6,20 @@ on:
   push:
     branches: [main]
     paths:
-      - 'l2-firmware/**'
+      - 'l2/firmware/**'
+      - 'hwip/accel/firmware/**'
       - 'west.yml'
       - '.github/workflows/ci-firmware.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'l2-firmware/**'
+      - 'l2/firmware/**'
+      - 'hwip/accel/firmware/**'
       - 'west.yml'
 
 jobs:
-  build:
-    name: Build Firmware (native_sim)
+  platform-firmware:
+    name: Platform firmware
     runs-on: ubuntu-24.04
     container:
       image: ghcr.io/zephyrproject-rtos/ci:v0.26.14
@@ -44,14 +46,14 @@ jobs:
       - name: Build firmware (native_sim/native/64)
         working-directory: deepspan
         run: |
-          west build -b native_sim/native/64 l2-firmware/app \
+          west build -b native_sim/native/64 l2/firmware/app \
             -- -DCONFIG_ASSERT=y -DCONFIG_LOG=y \
-               -DZEPHYR_EXTRA_MODULES=$(pwd)/l2-firmware
+               -DZEPHYR_EXTRA_MODULES=$(pwd)/l2/firmware
 
       - name: Run Ztest (native_sim)
         working-directory: deepspan
         run: |
-          west twister -T l2-firmware/tests \
+          west twister -T l2/firmware/tests \
             --platform native_sim/native/64 \
             --inline-logs \
             -v
@@ -62,3 +64,38 @@ jobs:
         with:
           name: twister-results
           path: deepspan/twister-out/
+
+  hwip-firmware:
+    name: HWIP Accel firmware
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/zephyrproject-rtos/ci-base:v0.27.4
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check hwip accel firmware exists
+        id: check
+        run: |
+          if [ -d hwip/accel/firmware ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "hwip/accel/firmware not yet created — skipping build"
+          fi
+
+      - name: West init and update
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          west init -l .
+          west update --narrow -o=--depth=1
+
+      - name: Build HWIP accel firmware
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          west build \
+            -b native_sim/native/64 \
+            hwip/accel/firmware
+
+      - name: Run native_sim tests
+        if: steps.check.outputs.skip == 'false'
+        run: west build --target run

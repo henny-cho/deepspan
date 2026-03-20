@@ -7,7 +7,7 @@ managed:
   enabled: true
   override:
     - file_option: go_package_prefix
-      value: github.com/myorg/deepspan-hwip/accel/gen/go
+      value: github.com/myorg/deepspan/hwip/accel/gen/go
 
 plugins:
   - local: protoc-gen-go

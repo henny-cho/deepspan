@@ -12,7 +12,7 @@ import (
 	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
-	v1 "github.com/myorg/deepspan-hwip/accel/gen/go/deepspan_accel/v1"
+	v1 "github.com/myorg/deepspan/hwip/accel/gen/go/deepspan_accel/v1"
 	http "net/http"
 	strings "strings"
 )

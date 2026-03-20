@@ -26,8 +26,8 @@ import (
 	"golang.org/x/net/http2/h2c"
 
 	// Side-effect: registers "accel" plugin with hwip.Register().
-	"github.com/myorg/deepspan-hwip/accel/gen/go/deepspan_accel/v1/deepspan_accelv1connect"
-	accel "github.com/myorg/deepspan-hwip/accel/l4-plugin"
+	"github.com/myorg/deepspan/hwip/accel/gen/go/deepspan_accel/v1/deepspan_accelv1connect"
+	accel "github.com/myorg/deepspan/hwip/accel/l4-plugin"
 	"github.com/myorg/deepspan/l4/server/pkg/hwip"
 	deepspanv1connect "github.com/myorg/deepspan/l5/gen/deepspan/v1/deepspanv1connect"
 )

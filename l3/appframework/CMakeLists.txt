@@ -17,6 +17,9 @@ add_library(deepspan-appframework STATIC
     src/circuit_breaker.cpp
     src/session_manager.cpp
 )
+# Namespaced alias so cmake/hwip-plugin.cmake can use Deepspan:: targets
+# both in monorepo (in-tree) and installed (find_package) builds.
+add_library(Deepspan::deepspan-appframework ALIAS deepspan-appframework)
 
 target_include_directories(deepspan-appframework
     PUBLIC  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

@@ -37,9 +37,9 @@ jobs:
     outputs:
       releases_created: ${{ steps.rp.outputs.releases_created }}
       tag_name: ${{ steps.rp.outputs.tag_name }}
-      l4-server--release_created: ${{ steps.rp.outputs['l4-server--release_created'] }}
-      l4-mgmt-daemon--release_created: ${{ steps.rp.outputs['l4-mgmt-daemon--release_created'] }}
-      l6-sdk--release_created: ${{ steps.rp.outputs['l6-sdk--release_created'] }}
+      l4/server--release_created: ${{ steps.rp.outputs['l4/server--release_created'] }}
+      l4/mgmt-daemon--release_created: ${{ steps.rp.outputs['l4/mgmt-daemon--release_created'] }}
+      l6/sdk--release_created: ${{ steps.rp.outputs['l6/sdk--release_created'] }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: rp
@@ -56,7 +56,7 @@ jobs:
   goreleaser-server:
     name: Release server binary
     needs: release-please
-    if: needs.release-please.outputs['l4-server--release_created'] == 'true'
+    if: needs.release-please.outputs['l4/server--release_created'] == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -71,7 +71,7 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          workdir: l4-server
+          workdir: l4/server
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -79,7 +79,7 @@ jobs:
   goreleaser-mgmt:
     name: Release mgmt-daemon binary
     needs: release-please
-    if: needs.release-please.outputs['l4-mgmt-daemon--release_created'] == 'true'
+    if: needs.release-please.outputs['l4/mgmt-daemon--release_created'] == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -94,7 +94,7 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          workdir: l4-mgmt-daemon
+          workdir: l4/mgmt-daemon
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -102,7 +102,7 @@ jobs:
   publish-pypi:
     name: Publish SDK to PyPI
     needs: release-please
-    if: needs.release-please.outputs['l6-sdk--release_created'] == 'true'
+    if: needs.release-please.outputs['l6/sdk--release_created'] == 'true'
     runs-on: ubuntu-24.04
     environment: pypi
     permissions:
@@ -113,12 +113,12 @@ jobs:
       - uses: astral-sh/setup-uv@v4
 
       - name: Build SDK wheel
-        working-directory: sdk
+        working-directory: l6/sdk
         run: uv build
 
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: sdk/dist/
+          packages-dir: l6/sdk/dist/
 
   platform-install-artifact:
     name: Build & upload platform install artifact
@@ -156,18 +156,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  trigger-hwip-compat:
-    name: Trigger HWIP compatibility check
-    needs: [release-please, platform-install-artifact]
-    if: needs.release-please.outputs.releases_created == 'true'
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Dispatch deepspan-hwip CI
-        run: |
-          gh workflow run ci-all.yml \
-            --repo myorg/deepspan-hwip \
-            --field platform_ref=${{ needs.release-please.outputs.tag_name }}
-        env:
-          # Cross-repo dispatch requires a PAT with repo + workflow scope.
-          # Store as secrets.DISPATCH_PAT.
-          GH_TOKEN: ${{ secrets.DISPATCH_PAT }}
+  # hwip compatibility check is now part of the same monorepo CI —
+  # no cross-repo dispatch needed.

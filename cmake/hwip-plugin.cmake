@@ -99,7 +99,7 @@ function(deepspan_hwip_codegen)
 
     add_custom_command(
         OUTPUT ${_stamp}
-        COMMAND ${Python3_EXECUTABLE} -m deepspan_codegen generate
+        COMMAND ${Python3_EXECUTABLE} -m deepspan_codegen
             --descriptor ${CG_DESCRIPTOR}
             --out ${GEN_DIR}
             --target ${CG_TARGETS}

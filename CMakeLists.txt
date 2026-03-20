@@ -70,7 +70,7 @@ if(DEEPSPAN_BUILD_KERNEL)
 endif()
 
 if(DEEPSPAN_BUILD_HWIP)
-    include(DeepspanHwip)
+    include(cmake/hwip-plugin.cmake)
     add_subdirectory(hwip/${HWIP_TYPE})
 endif()
 

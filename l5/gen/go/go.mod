@@ -3,8 +3,11 @@ module github.com/myorg/deepspan/l5/gen
 go 1.26.1
 
 require (
-	connectrpc.com/connect v1.16.2
-	google.golang.org/protobuf v1.34.2
+	connectrpc.com/connect v1.17.0
+	google.golang.org/protobuf v1.36.5
 )
 
-require golang.org/x/net v0.27.0 // indirect
+require (
+	github.com/google/go-cmp v0.6.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
+)

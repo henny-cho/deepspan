@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-cmake_minimum_required(VERSION 3.25)
-project(deepspan-accel VERSION 1.0.0 LANGUAGES CXX)
+# Included via add_subdirectory() from root CMakeLists.txt (dev-hwip preset).
+# cmake/hwip-plugin.cmake must be included before this file.
 
 # ── Codegen ─────────────────────────────────────────────────────────────────
 deepspan_hwip_codegen(

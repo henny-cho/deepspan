@@ -5,22 +5,32 @@ on:
   push:
     branches: [main]
     paths:
-      - 'l4-mgmt-daemon/**'
-      - 'l4-server/**'
-      - 'l5-gen/go/**'
+      - 'l4/mgmt-daemon/**'
+      - 'l4/server/**'
+      - 'l5/gen/go/**'
+      - 'hwip/accel/l4-plugin/**'
+      - 'hwip/accel/gen/go/**'
+      - 'hwip/shared/testutils/**'
+      - 'hwip/demo/**'
       - 'go.work'
       - 'scripts/lib.sh'
-      - 'scripts/gate.sh'
+      - 'scripts/dev.sh'
+      - 'hwip/scripts/hwip.sh'
       - '.github/workflows/ci-go.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'l4-mgmt-daemon/**'
-      - 'l4-server/**'
-      - 'l5-gen/go/**'
+      - 'l4/mgmt-daemon/**'
+      - 'l4/server/**'
+      - 'l5/gen/go/**'
+      - 'hwip/accel/l4-plugin/**'
+      - 'hwip/accel/gen/go/**'
+      - 'hwip/shared/testutils/**'
+      - 'hwip/demo/**'
       - 'go.work'
       - 'scripts/lib.sh'
-      - 'scripts/gate.sh'
+      - 'scripts/dev.sh'
+      - 'hwip/scripts/hwip.sh'
 
 env:
   GO_VERSION: '1.26'
@@ -34,24 +44,30 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - module: l4-mgmt-daemon
+          - module: l4/mgmt-daemon
             slug: l4-mgmt-daemon
-          - module: l4-server
+          - module: l4/server
             slug: l4-server
+          - module: hwip/accel/l4-plugin
+            slug: hwip-l4-plugin
+          - module: hwip/demo
+            slug: hwip-demo
 
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: go-${{ hashFiles('**/go.sum') }}
 
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: |
             ${{ matrix.module }}/go.sum
-            l5-gen/go/go.sum
-
-      - name: Download dependencies
-        working-directory: ${{ matrix.module }}
-        run: go mod download
+            l5/gen/go/go.sum
+            go.work.sum
 
       - name: Build
         working-directory: ${{ matrix.module }}
@@ -69,23 +85,36 @@ jobs:
           path: ${{ matrix.module }}/coverage.out
 
   lint:
-    name: Lint (gate.sh)
+    name: Lint (dev.sh)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: go-${{ hashFiles('**/go.sum') }}
 
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: |
-            l4-mgmt-daemon/go.sum
-            l4-server/go.sum
-            l5-gen/go/go.sum
+            l4/mgmt-daemon/go.sum
+            l4/server/go.sum
+            l5/gen/go/go.sum
+            hwip/accel/l4-plugin/go.sum
+            hwip/demo/go.sum
+            go.work.sum
 
       - name: Install golangci-lint
         run: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
             | sh -s -- -b "$(go env GOPATH)/bin" ${{ env.GOLANGCI_VERSION }}
 
-      - name: Lint via gate.sh
-        run: ./scripts/gate.sh lint
+      - name: Verify go workspace
+        run: |
+          go work sync
+          git diff --exit-code go.work.sum
+
+      - name: Lint all Go modules (platform + hwip)
+        run: ./scripts/dev.sh lint

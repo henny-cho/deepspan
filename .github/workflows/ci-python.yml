@@ -5,12 +5,12 @@ on:
   push:
     branches: [main]
     paths:
-      - 'l6-sdk/**'
+      - 'l6/sdk/**'
       - '.github/workflows/ci-python.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'l6-sdk/**'
+      - 'l6/sdk/**'
 
 jobs:
   test:
@@ -28,12 +28,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-sdk-${{ matrix.python-version }}-${{ hashFiles('l6/sdk/pyproject.toml') }}
+
       - name: Install SDK with dev deps
-        working-directory: l6-sdk
+        working-directory: l6/sdk
         run: uv sync --extra dev
 
       - name: Run tests
-        working-directory: l6-sdk
+        working-directory: l6/sdk
         run: uv run pytest --tb=short -v
 
       - name: Upload coverage
@@ -41,4 +46,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: python-coverage
-          path: l6-sdk/.coverage
+          path: l6/sdk/.coverage

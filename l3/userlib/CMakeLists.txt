@@ -45,6 +45,9 @@ add_library(deepspan-userlib STATIC
     src/async_client.cpp
     src/error.cpp
 )
+# Namespaced alias so cmake/hwip-plugin.cmake can use Deepspan:: targets
+# both in monorepo (in-tree) and installed (find_package) builds.
+add_library(Deepspan::deepspan-userlib ALIAS deepspan-userlib)
 
 set(DEEPSPAN_KERNEL_UAPI_DIR "${PROJECT_SOURCE_DIR}/../../l2/kernel/include/uapi"
     CACHE PATH "Kernel UAPI header directory (provides <linux/deepspan.h>)")
