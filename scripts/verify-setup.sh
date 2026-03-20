@@ -14,7 +14,9 @@
 set -euo pipefail
 
 DEEPSPAN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export PATH="/usr/local/go/bin:${HOME}/go/bin:${HOME}/.local/bin:${HOME}/.cargo/bin:$PATH"
+# shellcheck source=lib.sh
+source "${DEEPSPAN_ROOT}/scripts/lib.sh"
+ds_setup_path
 
 declare -A LAYER_SCRIPT=(
     [l3-hw-model]="l3-hw-model/scripts/verify-setup.sh"
@@ -42,10 +44,6 @@ while [[ $# -gt 0 ]]; do
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
-
-GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; BOLD='\033[1m'; NC='\033[0m'
-
-should_skip() { for s in "${SKIP_LAYERS[@]:-}"; do [[ "$s" == "$1" ]] && return 0; done; return 1; }
 
 declare -A RESULTS=()
 

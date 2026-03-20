@@ -11,6 +11,8 @@
 set -euo pipefail
 
 DEEPSPAN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib.sh
+source "${DEEPSPAN_ROOT}/scripts/lib.sh"
 
 # ── Argument parsing ─────────────────────────────────────────────────────────
 ALL_LAYERS=(l3-hw-model l2-firmware l2-kernel l3-userlib l3-appframework l4-mgmt-daemon l4-server l6-sdk)
@@ -30,15 +32,6 @@ while [[ $# -gt 0 ]]; do
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
-
-should_skip() {
-    local layer="$1"
-    for s in "${SKIP_LAYERS[@]:-}"; do [[ "$s" == "$layer" ]] && return 0; done
-    return 1
-}
 
 run_layer() {
     local layer="$1"

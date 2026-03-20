@@ -21,10 +21,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEEPSPAN_ROOT="${SCRIPT_DIR}/.."
-# deepspan-accel repo is expected alongside deepspan/ (sibling directory).
-# Override with DEEPSPAN_ACCEL_ROOT env var if layout differs.
-ACCEL_ROOT="${DEEPSPAN_ACCEL_ROOT:-${DEEPSPAN_ROOT}/../deepspan-accel}"
-export PATH="/usr/local/go/bin:${HOME}/go/bin:${HOME}/.local/bin:${HOME}/.cargo/bin:$PATH"
+# deepspan-hwip repo is expected alongside deepspan/ (sibling directory).
+# Override with DEEPSPAN_HWIP_ROOT env var if layout differs.
+ACCEL_ROOT="${DEEPSPAN_HWIP_ROOT:-${DEEPSPAN_ROOT}/../deepspan-hwip}"
+# shellcheck source=lib.sh
+source "${SCRIPT_DIR}/lib.sh"
+ds_setup_path
+DS_LOG_PREFIX="[run-sim]"
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
 NO_BUILD=0
@@ -51,15 +54,6 @@ while [[ $# -gt 0 ]]; do
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
-
-# ── Colours ───────────────────────────────────────────────────────────────────
-GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'
-BOLD='\033[1m'; NC='\033[0m'
-
-log()  { echo -e "${BOLD}[run-sim]${NC} $*"; }
-ok()   { echo -e "${GREEN}${BOLD}[run-sim] $*${NC}"; }
-warn() { echo -e "${YELLOW}[run-sim] $*${NC}"; }
-fail() { echo -e "${RED}${BOLD}[run-sim] $*${NC}"; exit 1; }
 
 # ── PID tracking for cleanup ─────────────────────────────────────────────────
 PIDS=()
