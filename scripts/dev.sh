@@ -55,6 +55,11 @@ Lifecycle commands:
   build     [--layers L1,L2] [--skip L1]
               Build every layer and print a pass/fail/time summary.
 
+  build clean  [--layers L1,L2] [--skip L1] [--logs] [--all]
+              Remove build artifacts for each layer.
+              --logs   Also remove build/logs/
+              --all    Remove build/logs/ and build/bin/ (full reset)
+
   lint      [--module MOD] [--strict]
               Run golangci-lint on all Go workspace modules.
               --module MOD   Lint a single module (e.g. l4/server)
@@ -406,9 +411,147 @@ YAML
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
+# build clean
+# ══════════════════════════════════════════════════════════════════════════════
+cmd_build_clean() {
+    ALL_LAYERS=(l3/hw-model l2/kernel l3/userlib l3/appframework l2/firmware l4/mgmt-daemon l4/server l6/sdk)
+    LAYERS=("${ALL_LAYERS[@]}")
+    SKIP_LAYERS=()
+    local clean_logs=0 clean_all=0
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --layers) IFS=',' read -ra LAYERS <<< "$2"; shift 2 ;;
+            --skip)   IFS=',' read -ra SKIP_LAYERS <<< "$2"; shift 2 ;;
+            --logs)   clean_logs=1; shift ;;
+            --all)    clean_all=1; shift ;;
+            -h|--help)
+                echo "Usage: $0 build clean [--layers L1,L2] [--skip L1] [--logs] [--all]"
+                echo ""
+                echo "  --layers L1,L2  Clean only the specified layers"
+                echo "  --skip L1       Skip specific layers"
+                echo "  --logs          Also remove build/logs/"
+                echo "  --all           Remove build/logs/ and build/bin/ (full reset)"
+                exit 0 ;;
+            *) die "Unknown clean option: $1" ;;
+        esac
+    done
+
+    declare -A RESULTS=()
+
+    for layer in "${LAYERS[@]}"; do
+        if should_skip "$layer"; then
+            RESULTS[$layer]="SKIP"; continue
+        fi
+        section "clean: $layer"
+        case "$layer" in
+            l3/hw-model|l3/userlib|l3/appframework)
+                local build_dir="${DEEPSPAN_ROOT}/${layer}/build"
+                if [[ -d "$build_dir" ]]; then
+                    rm -rf "$build_dir"
+                    ok "$layer: removed $(basename "$build_dir")/"
+                else
+                    log "$layer: nothing to clean"
+                fi
+                RESULTS[$layer]="OK"
+                ;;
+            l2/kernel)
+                local driver_dir="${DEEPSPAN_ROOT}/l2/kernel/drivers/deepspan"
+                local kver kbuild
+                kver="$(uname -r)"
+                kbuild="/lib/modules/${kver}/build"
+                if [[ -d "$kbuild" ]]; then
+                    make -C "$kbuild" M="$driver_dir" clean 2>/dev/null \
+                        && ok "l2/kernel: make clean done" \
+                        || warn "l2/kernel: make clean returned non-zero"
+                else
+                    warn "l2/kernel: kbuild not found (${kbuild}), removing artifacts manually"
+                    find "$driver_dir" \
+                        \( -name "*.ko" -o -name "*.o" -o -name "*.mod" \
+                           -o -name "*.mod.c" -o -name "modules.order" \
+                           -o -name "Module.symvers" -o -name "*.cmd" \) \
+                        -delete 2>/dev/null || true
+                    ok "l2/kernel: artifacts removed"
+                fi
+                RESULTS[$layer]="OK"
+                ;;
+            l2/firmware)
+                local fw_build="${DEEPSPAN_ROOT}/build/firmware"
+                if [[ -d "$fw_build" ]]; then
+                    rm -rf "$fw_build"
+                    ok "l2/firmware: removed build/firmware/"
+                else
+                    log "l2/firmware: nothing to clean"
+                fi
+                RESULTS[$layer]="OK"
+                ;;
+            l4/mgmt-daemon|l4/server)
+                (cd "${DEEPSPAN_ROOT}/${layer}" && go clean ./...)
+                ok "$layer: go clean done"
+                RESULTS[$layer]="OK"
+                ;;
+            l6/sdk)
+                local sdk_venv="${DEEPSPAN_ROOT}/l6/sdk/.venv"
+                if [[ -d "$sdk_venv" ]]; then
+                    rm -rf "$sdk_venv"
+                    ok "l6/sdk: removed .venv/"
+                fi
+                find "${DEEPSPAN_ROOT}/l6/sdk" -type d -name "__pycache__" \
+                    -exec rm -rf {} + 2>/dev/null || true
+                find "${DEEPSPAN_ROOT}/l6/sdk" -name "*.pyc" -delete 2>/dev/null || true
+                ok "l6/sdk: removed __pycache__ and *.pyc"
+                RESULTS[$layer]="OK"
+                ;;
+            *)
+                warn "No clean action defined for layer: $layer"
+                RESULTS[$layer]="SKIP"
+                ;;
+        esac
+    done
+
+    if [[ $clean_logs -eq 1 || $clean_all -eq 1 ]]; then
+        section "clean: build/logs"
+        rm -rf "${DEEPSPAN_ROOT}/build/logs"
+        ok "build/logs/ removed"
+    fi
+
+    if [[ $clean_all -eq 1 ]]; then
+        section "clean: build/bin"
+        rm -rf "${DEEPSPAN_ROOT}/build/bin"
+        ok "build/bin/ removed"
+    fi
+
+    echo ""
+    echo -e "${BOLD}┌──────────────────────────────────────┐${NC}"
+    echo -e "${BOLD}│  Clean summary                       │${NC}"
+    echo -e "${BOLD}├──────────────────────┬───────────────┤${NC}"
+    printf "${BOLD}│ %-20s │ %-13s │${NC}\n" "Layer" "Result"
+    echo -e "${BOLD}├──────────────────────┼───────────────┤${NC}"
+    for layer in "${LAYERS[@]}"; do
+        local result="${RESULTS[$layer]:-SKIP}"
+        local colour
+        case "$result" in
+            OK)   colour="${GREEN}" ;;
+            SKIP) colour="${YELLOW}" ;;
+            *)    colour="${NC}" ;;
+        esac
+        printf "│ %-20s │ ${colour}%-13s${NC} │\n" "$layer" "$result"
+    done
+    echo -e "${BOLD}└──────────────────────┴───────────────┘${NC}"
+    echo ""
+    ok "clean complete"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
 # build
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_build() {
+    # Sub-command: clean
+    if [[ "${1:-}" == "clean" ]]; then
+        shift
+        cmd_build_clean "$@"
+        return
+    fi
     declare -A LAYER_SCRIPT=(
         [l3/hw-model]="l3/hw-model/scripts/build.sh"
         [l3/userlib]="l3/userlib/scripts/build.sh"
