@@ -61,3 +61,4 @@ twister-out.*/
 # OS
 .DS_Store
 Thumbs.db
+sdk/src/deepspan/_proto/

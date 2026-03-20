@@ -1,5 +1,6 @@
 [tool.uv.workspace]
-members = ["sdk"]
+members = ["sdk", "codegen"]
 
 [tool.uv.sources]
 deepspan-sdk = { workspace = true }
+deepspan-codegen = { workspace = true }

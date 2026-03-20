@@ -10,18 +10,15 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 dependencies = [
-    "httpx[http2]>=0.27",
-    "protobuf>=5.27",
-    "anthropic>=0.34",
     "grpcio>=1.64",
-    "grpcio-tools>=1.64",
+    "protobuf>=5.27",
 ]
 
 [project.optional-dependencies]
 dev = [
+    "grpcio-tools>=1.64",
     "pytest>=8.2",
     "pytest-asyncio>=0.23",
-    "respx>=0.21",
 ]
 
 [tool.hatch.build.targets.wheel]

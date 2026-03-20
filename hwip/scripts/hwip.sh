@@ -161,6 +161,19 @@ cmd_setup() {
         done
         $found_hwip || warn "No hwip.yaml found under ${HWIP_ROOT}"
         ok "HWIP artifacts generated"
+
+        section "setup: Python gRPC proto stubs"
+        local GEN_PROTO="${DEEPSPAN_ROOT}/sdk/scripts/gen_proto.py"
+        if command -v uv &>/dev/null; then
+            (cd "${DEEPSPAN_ROOT}/sdk" && \
+                uv run --with grpcio-tools python "${GEN_PROTO}") \
+                && ok "Python proto stubs generated → sdk/src/deepspan/_proto/" \
+                || warn "Python proto stub generation failed (grpcio-tools not available?)"
+        else
+            python3 "${GEN_PROTO}" \
+                && ok "Python proto stubs generated" \
+                || warn "Python proto stub generation failed"
+        fi
     fi
 
     echo ""

@@ -310,6 +310,22 @@ cmd_gen() {
         echo ""
         echo "Next: git add hwip/*/gen/ && git commit -m 'chore: regenerate HWIP artifacts'"
     fi
+
+    # ── Python gRPC proto stubs (api/proto/ → sdk/src/deepspan/_proto/) ──────
+    if ! $check_mode && ! $skip_hwip; then
+        section "gen: Python gRPC proto stubs"
+        local GEN_PROTO="${DEEPSPAN_ROOT}/sdk/scripts/gen_proto.py"
+        if command -v uv &>/dev/null; then
+            (cd "${DEEPSPAN_ROOT}/sdk" && \
+                uv run --with grpcio-tools python "${GEN_PROTO}") \
+                && ok "Python proto stubs generated → sdk/src/deepspan/_proto/" \
+                || warn "Python proto stub generation failed (grpcio-tools not available?)"
+        else
+            python3 "${GEN_PROTO}" \
+                && ok "Python proto stubs generated" \
+                || warn "Python proto stub generation failed"
+        fi
+    fi
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
