@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: Apache-2.0
+# hwip.yaml — HWIP descriptor template
+#
+# Copy this directory to hwip/<your-name>/ and fill in the fields below.
+# Run: ./hwip/scripts/hwip.sh gen --hwip <your-name>
+#
+# Fields:
+#   name       : short identifier, lowercase, no spaces (used in generated symbols)
+#   version    : semantic version string
+#   operations : list of HW operations exposed over gRPC
+#   platform_registers: optional; HW register map (for C/Zephyr code generation)
+
+name: mychip          # TODO: replace with your HWIP name
+version: "0.1.0"
+
+operations:
+  - name: noop
+    opcode: 0x0000
+    doc: "No-operation — used for connectivity checks"
+
+  - name: echo
+    opcode: 0x0001
+    doc: "Echo: server returns the request payload unchanged"
+
+  # TODO: add your HW-specific operations here
+  # - name: my_op
+  #   opcode: 0x0002
+  #   doc: "Description of what this operation does"
+
+platform_registers:
+  control:
+    offset: 0x00
+    doc: "Control register (write 1 to start)"
+  status:
+    offset: 0x04
+    doc: "Status register (bit 0 = done, bit 1 = error)"
+  data_in:
+    offset: 0x10
+    doc: "Input data register"
+  data_out:
+    offset: 0x14
+    doc: "Output data register"

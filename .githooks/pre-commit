@@ -1,41 +1,46 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Pre-commit hook: run golangci-lint for every Go module before commit.
+# Pre-commit hook: run clang-tidy for staged C++ source files.
 # Install once with: git config core.hooksPath .githooks
 set -euo pipefail
 
 # git hooks are invoked with a minimal PATH; restore common tool locations.
-export PATH="/usr/local/go/bin:${HOME}/go/bin:${HOME}/.local/bin:${PATH}"
+export PATH="/usr/local/bin:${HOME}/.local/bin:${HOME}/.cargo/bin:${PATH}"
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-GO_MODULES=(l4/mgmt-daemon l4/server hwip/accel/l4-plugin hwip/demo)
 
-# Resolve golangci-lint: check PATH first, then $GOPATH/bin fallback.
-GOLANGCI_LINT="golangci-lint"
-if ! command -v golangci-lint &>/dev/null; then
-    GOPATH_BIN="$(go env GOPATH 2>/dev/null)/bin"
-    if [ -x "$GOPATH_BIN/golangci-lint" ]; then
-        GOLANGCI_LINT="$GOPATH_BIN/golangci-lint"
-    else
-        echo "[pre-commit] golangci-lint not found — skipping Go lint" >&2
-        echo "[pre-commit] Run: ./scripts/install-hooks.sh --lint" >&2
-        exit 0
-    fi
+# Only run clang-tidy if it is installed.
+if ! command -v clang-tidy &>/dev/null; then
+    echo "[pre-commit] clang-tidy not found — skipping C++ lint" >&2
+    exit 0
+fi
+
+# Collect staged C++ files.
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|cxx|cc|hpp|hxx|h)$' || true)
+if [[ -z "$STAGED" ]]; then
+    exit 0
+fi
+
+COMPILE_DB="${REPO_ROOT}/build/dev/compile_commands.json"
+if [[ ! -f "$COMPILE_DB" ]]; then
+    echo "[pre-commit] compile_commands.json not found at ${COMPILE_DB}" >&2
+    echo "[pre-commit] Run: cmake --preset dev first" >&2
+    exit 0
 fi
 
 FAILED=()
-for mod in "${GO_MODULES[@]}"; do
-    echo "[pre-commit] Linting $mod ..."
-    if ! (cd "$REPO_ROOT/$mod" && "$GOLANGCI_LINT" run ./...); then
-        FAILED+=("$mod")
+while IFS= read -r file; do
+    abs="${REPO_ROOT}/${file}"
+    echo "[pre-commit] clang-tidy: ${file}"
+    if ! clang-tidy -p "$COMPILE_DB" "$abs" -- 2>/dev/null; then
+        FAILED+=("$file")
     fi
-done
+done <<< "$STAGED"
 
-if [ ${#FAILED[@]} -ne 0 ]; then
+if [[ ${#FAILED[@]} -ne 0 ]]; then
     echo ""
-    echo "[pre-commit] ✗ Lint failed in: ${FAILED[*]}" >&2
-    echo "[pre-commit] Fix the issues above and retry." >&2
+    echo "[pre-commit] ✗ clang-tidy failed for: ${FAILED[*]}" >&2
     exit 1
 fi
 
-echo "[pre-commit] ✓ All Go modules passed lint."
+echo "[pre-commit] ✓ C++ lint passed."

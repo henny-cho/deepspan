@@ -4,7 +4,7 @@ use (
 	./hwip/accel/gen/go
 	./hwip/accel/l4-plugin
 	./hwip/demo
-	./hwip/shared/testutils
+	./hwip/testutils
 	./l4/mgmt-daemon
 	./l4/server
 	./l5/gen/go
