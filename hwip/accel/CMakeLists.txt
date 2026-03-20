@@ -17,9 +17,13 @@ deepspan_hwip_target(
         hw-model/src/accel_hw_model.cpp
     INCLUDE_DIRS
         ${CMAKE_CURRENT_SOURCE_DIR}/hw-model/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/gen/l3-cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/gen/sim
+        ${CMAKE_CURRENT_SOURCE_DIR}/gen/rpc
 )
 add_dependencies(deepspan-accel-hw-model accel-codegen)
+
+# ── Submitter plugin (.so) ────────────────────────────────────────────────────
+add_subdirectory(plugin)
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 if(BUILD_TESTING)

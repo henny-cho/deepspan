@@ -6,10 +6,12 @@ on:
     branches: [main]
     paths:
       - 'hwip/**'
-      - 'l3/hw-model/**'
-      - 'l3/userlib/**'
-      - 'l3/appframework/**'
-      - 'l2/kernel/include/**'
+      - 'sim/**'
+      - 'runtime/**'
+      - 'server/**'
+      - 'kernel/include/**'
+      - 'api/proto/**'
+      - 'cmake/**'
       - 'CMakeLists.txt'
       - 'CMakePresets.json'
       - '.github/workflows/ci-cpp.yml'
@@ -18,10 +20,12 @@ on:
     branches: [main]
     paths:
       - 'hwip/**'
-      - 'l3/hw-model/**'
-      - 'l3/userlib/**'
-      - 'l3/appframework/**'
-      - 'l2/kernel/include/**'
+      - 'sim/**'
+      - 'runtime/**'
+      - 'server/**'
+      - 'kernel/include/**'
+      - 'api/proto/**'
+      - 'cmake/**'
       - 'CMakeLists.txt'
       - 'CMakePresets.json'
       - '.github/actions/setup-cpp-build/**'
