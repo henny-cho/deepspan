@@ -3,7 +3,12 @@
 
 from .client import DeepspanClient
 from .models import DeviceInfo, DeviceState, TelemetrySnapshot, FirmwareInfo
-from .diagnostics import AIDiagnostics
+
+try:
+    from .diagnostics import AIDiagnostics
+    _HAS_DIAGNOSTICS = True
+except ImportError:
+    _HAS_DIAGNOSTICS = False
 
 __all__ = [
     "DeepspanClient",
@@ -11,5 +16,6 @@ __all__ = [
     "DeviceState",
     "TelemetrySnapshot",
     "FirmwareInfo",
-    "AIDiagnostics",
 ]
+if _HAS_DIAGNOSTICS:
+    __all__.append("AIDiagnostics")

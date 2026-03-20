@@ -1,74 +1,111 @@
 # SPDX-License-Identifier: Apache-2.0
+"""Unit tests for DeepspanClient using grpc mock stubs."""
+from __future__ import annotations
+
 import pytest
-import respx
-import httpx
-from deepspan import DeepspanClient
-from deepspan.models import DeviceState
+from unittest.mock import MagicMock, patch
+from deepspan.models import DeviceInfo, DeviceState, FirmwareInfo
+
+
+def _make_proto_device(device_id: str, state: int):
+    d = MagicMock()
+    d.device_id = device_id
+    d.state = state
+    return d
 
 
 @pytest.fixture
-def client():
-    c = DeepspanClient("http://localhost:8080")
-    yield c
-    c.close()
+def mock_stubs(monkeypatch):
+    """Patch the proto stub imports and return mock stub instances."""
+    # Build mock pb2 modules with lightweight stand-ins
+    device_pb2 = MagicMock()
+    device_pb2_grpc = MagicMock()
+    management_pb2 = MagicMock()
+    management_pb2_grpc = MagicMock()
+    telemetry_pb2 = MagicMock()
+    telemetry_pb2_grpc = MagicMock()
+
+    stub_modules = {
+        "deepspan._proto": MagicMock(),
+        "deepspan._proto.deepspan": MagicMock(),
+        "deepspan._proto.deepspan.v1": MagicMock(),
+        "deepspan._proto.deepspan.v1.device_pb2": device_pb2,
+        "deepspan._proto.deepspan.v1.device_pb2_grpc": device_pb2_grpc,
+        "deepspan._proto.deepspan.v1.management_pb2": management_pb2,
+        "deepspan._proto.deepspan.v1.management_pb2_grpc": management_pb2_grpc,
+        "deepspan._proto.deepspan.v1.telemetry_pb2": telemetry_pb2,
+        "deepspan._proto.deepspan.v1.telemetry_pb2_grpc": telemetry_pb2_grpc,
+    }
+
+    with patch.dict("sys.modules", stub_modules):
+        # Reimport client with patched modules
+        import importlib
+        import deepspan.client as client_mod
+        importlib.reload(client_mod)
+
+        # Create stub mock instances
+        hwip_stub = MagicMock()
+        mgmt_stub = MagicMock()
+        tel_stub = MagicMock()
+
+        device_pb2_grpc.HwipServiceStub.return_value = hwip_stub
+        management_pb2_grpc.ManagementServiceStub.return_value = mgmt_stub
+        telemetry_pb2_grpc.TelemetryServiceStub.return_value = tel_stub
+
+        with patch("grpc.insecure_channel"):
+            client = client_mod.DeepspanClient("localhost:8080")
+            client._hwip = hwip_stub
+            client._mgmt = mgmt_stub
+            client._tel = tel_stub
+            yield client, hwip_stub, mgmt_stub, tel_stub, device_pb2, management_pb2, telemetry_pb2
 
 
-@respx.mock
-def test_list_devices(client):
-    respx.post("http://localhost:8080/deepspan.v1.HwipService/ListDevices").mock(
-        return_value=httpx.Response(200, json={
-            "devices": [{"deviceId": "hwip0", "state": 2}]
-        })
-    )
+def test_list_devices(mock_stubs):
+    client, hwip_stub, *_ = mock_stubs
+    dev0 = _make_proto_device("accel/0", 2)
+    resp = MagicMock()
+    resp.devices = [dev0]
+    hwip_stub.ListDevices.return_value = resp
+
     devices = client.list_devices()
     assert len(devices) == 1
-    assert devices[0].device_id == "hwip0"
+    assert devices[0].device_id == "accel/0"
     assert devices[0].state == DeviceState.READY
 
 
-@respx.mock
-def test_get_firmware_info(client):
-    respx.post("http://localhost:8080/deepspan.v1.ManagementService/GetFirmwareInfo").mock(
-        return_value=httpx.Response(200, json={
-            "fwVersion": "v2.1.0",
-            "buildDate": "2026-01-01T00:00:00Z",
-            "protocolVersion": 1,
-            "features": ["echo", "process"],
-        })
-    )
-    info = client.get_firmware_info("hwip0")
-    assert info.fw_version == "v2.1.0"
-    assert info.protocol_version == 1
-    assert "echo" in info.features
+def test_list_devices_empty(mock_stubs):
+    client, hwip_stub, *_ = mock_stubs
+    resp = MagicMock()
+    resp.devices = []
+    hwip_stub.ListDevices.return_value = resp
+
+    devices = client.list_devices()
+    assert devices == []
 
 
-@respx.mock
-def test_push_config_no_rejections(client):
-    respx.post("http://localhost:8080/deepspan.v1.ManagementService/PushConfig").mock(
-        return_value=httpx.Response(200, json={"success": True, "rejectedKeys": []})
-    )
-    rejected = client.push_config("hwip0", {"log_level": "debug"})
-    assert rejected == []
+def test_submit_request_returns_request_id(mock_stubs):
+    client, hwip_stub, *_ = mock_stubs
+    resp = MagicMock()
+    resp.request_id = 42
+    hwip_stub.SubmitRequest.return_value = resp
+
+    req_id = client.submit_request("accel/0", opcode=0x0001)
+    assert req_id == "42"
 
 
-@respx.mock
-def test_get_telemetry(client):
-    respx.post("http://localhost:8080/deepspan.v1.TelemetryService/GetTelemetry").mock(
-        return_value=httpx.Response(200, json={
-            "snapshot": {
-                "deviceId": "hwip0",
-                "timestampMs": 1700000000000,
-                "cpuUsage": 12.5,
-                "memUsage": 34.2,
-            }
-        })
-    )
-    snap = client.get_telemetry("hwip0")
-    assert snap.device_id == "hwip0"
-    assert snap.cpu_usage == pytest.approx(12.5)
+def test_get_device_status(mock_stubs):
+    client, hwip_stub, *_ = mock_stubs
+    proto_info = _make_proto_device("accel/0", 2)
+    resp = MagicMock()
+    resp.info = proto_info
+    hwip_stub.GetDeviceStatus.return_value = resp
+
+    info = client.get_device_status("accel/0")
+    assert info.device_id == "accel/0"
+    assert info.state == DeviceState.READY
 
 
-def test_client_context_manager():
-    """Verify __enter__/__exit__ work without errors."""
-    with DeepspanClient("http://localhost:8080") as c:
-        assert c is not None
+def test_context_manager(mock_stubs):
+    client, *_ = mock_stubs
+    with client as c:
+        assert c is client

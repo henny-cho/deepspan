@@ -8,13 +8,13 @@ on:
   push:
     branches: [main]
     paths:
-      - 'tools/deepspan-codegen/**'
+      - 'codegen/**'
       - 'hwip/**/hwip.yaml'
       - '.github/workflows/ci-codegen.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'tools/deepspan-codegen/**'
+      - 'codegen/**'
       - 'hwip/**/hwip.yaml'
 
 jobs:
@@ -37,17 +37,17 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/uv
-          key: uv-codegen-${{ matrix.python-version }}-${{ hashFiles('tools/deepspan-codegen/pyproject.toml') }}
+          key: uv-codegen-${{ matrix.python-version }}-${{ hashFiles('codegen/pyproject.toml') }}
 
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install deepspan-codegen with dev deps
-        working-directory: tools/deepspan-codegen
+        working-directory: codegen
         run: uv sync --extra dev 2>/dev/null || uv pip install -e ".[dev]"
 
       - name: Run TDD test suite
-        working-directory: tools/deepspan-codegen
+        working-directory: codegen
         run: |
           uv run pytest tests/ \
             -v \
@@ -62,7 +62,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: codegen-coverage
-          path: tools/deepspan-codegen/coverage.xml
+          path: codegen/coverage.xml
 
   lint:
     name: Lint deepspan-codegen
@@ -77,18 +77,18 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/uv
-          key: uv-codegen-lint-${{ hashFiles('tools/deepspan-codegen/pyproject.toml') }}
+          key: uv-codegen-lint-${{ hashFiles('codegen/pyproject.toml') }}
 
       - name: Install with dev deps
-        working-directory: tools/deepspan-codegen
+        working-directory: codegen
         run: uv sync --extra dev 2>/dev/null || uv pip install -e ".[dev]"
 
       - name: ruff check
-        working-directory: tools/deepspan-codegen
+        working-directory: codegen
         run: uv run ruff check deepspan_codegen/ tests/
 
       - name: ruff format check
-        working-directory: tools/deepspan-codegen
+        working-directory: codegen
         run: uv run ruff format --check deepspan_codegen/ tests/
 
   integration:
@@ -100,7 +100,7 @@ jobs:
       - uses: astral-sh/setup-uv@v4
 
       - name: Install deepspan-codegen
-        working-directory: tools/deepspan-codegen
+        working-directory: codegen
         run: uv sync
 
       - name: Generate from embedded accel descriptor
@@ -130,39 +130,39 @@ jobs:
               response:
                 fields: [{ name: data0, type: u32 }]
           YAML
-          uv run --directory tools/deepspan-codegen deepspan-codegen \
+          uv run --directory codegen deepspan-codegen \
             --descriptor /tmp/accel_hwip.yaml --out /tmp/gen
 
       - name: Verify generated files exist
         run: |
-          test -f /tmp/gen/l1-kernel/deepspan_accel.h                   && echo "OK: C kernel header"
-          test -f /tmp/gen/l3-cpp/deepspan_accel/ops.hpp                && echo "OK: C++ hw_model header"
-          test -f /tmp/gen/l2-firmware/deepspan_accel/dispatch.h        && echo "OK: firmware dispatch header"
-          test -f /tmp/gen/l5-proto/deepspan_accel/v1/device.proto      && echo "OK: proto file"
-          test -f /tmp/gen/l4-rpc/deepspan_accel/opcodes.go             && echo "OK: Go opcodes"
-          test -f /tmp/gen/l6-sdk/deepspan_accel/models.py              && echo "OK: Python models"
+          test -f /tmp/gen/kernel/deepspan_accel.h                      && echo "OK: C kernel header"
+          test -f /tmp/gen/sim/deepspan_accel/ops.hpp                   && echo "OK: C++ hw_model header"
+          test -f /tmp/gen/firmware/deepspan_accel/dispatch.h           && echo "OK: firmware dispatch header"
+          test -f /tmp/gen/proto/deepspan_accel/v1/device.proto         && echo "OK: proto file"
+          test -f /tmp/gen/rpc/accel.hpp                                && echo "OK: C++ RPC opcodes"
+          test -f /tmp/gen/sdk/deepspan_accel/models.py                 && echo "OK: Python models"
 
       - name: Verify key content in generated files
         run: |
-          grep -q "DEEPSPAN_ACCEL_OP_ECHO.*0x0001U" /tmp/gen/l1-kernel/deepspan_accel.h
+          grep -q "DEEPSPAN_ACCEL_OP_ECHO.*0x0001U" /tmp/gen/kernel/deepspan_accel.h
           echo "OK: C header has opcode macro"
 
-          grep -q "ECHO = 0x0001U" /tmp/gen/l3-cpp/deepspan_accel/ops.hpp
-          echo "OK: C++ enum has ECHO"
+          grep -q "ECHO = 0x0001U" /tmp/gen/sim/deepspan_accel/ops.hpp
+          echo "OK: C++ hw_model enum has ECHO"
 
-          grep -q "ACCEL_OP_UNSPECIFIED = 0" /tmp/gen/l5-proto/deepspan_accel/v1/device.proto
+          grep -q "ACCEL_OP_UNSPECIFIED = 0" /tmp/gen/proto/deepspan_accel/v1/device.proto
           echo "OK: proto has UNSPECIFIED=0"
 
-          grep -q "OpEcho uint32 = 0x0001" /tmp/gen/l4-rpc/deepspan_accel/opcodes.go
-          ! grep -q "0x0001U" /tmp/gen/l4-rpc/deepspan_accel/opcodes.go
-          echo "OK: Go has no C-style U suffix"
+          grep -q "ECHO = 0x0001U" /tmp/gen/rpc/accel.hpp
+          grep -q "proto_op_to_hw_op" /tmp/gen/rpc/accel.hpp
+          echo "OK: C++ RPC opcodes have ECHO and proto_op_to_hw_op"
 
-          python3 -m py_compile /tmp/gen/l6-sdk/deepspan_accel/models.py
+          python3 -m py_compile /tmp/gen/sdk/deepspan_accel/models.py
           echo "OK: Python syntax valid"
 
       - name: Generate from real hwip/accel/hwip.yaml (staleness check)
         run: |
-          uv run --directory tools/deepspan-codegen deepspan-codegen \
+          uv run --directory codegen deepspan-codegen \
             --descriptor "$GITHUB_WORKSPACE/hwip/accel/hwip.yaml" \
             --out /tmp/gen-accel-real
           echo "OK: generated from hwip/accel/hwip.yaml"
@@ -171,10 +171,10 @@ jobs:
         run: |
           # Check that key files exist in checked-in gen/ (artifacts not stale).
           for f in \
-            hwip/accel/gen/l1-kernel/deepspan_accel.h \
-            hwip/accel/gen/l3-cpp/deepspan_accel/ops.hpp \
-            hwip/accel/gen/l5-proto/deepspan_accel/v1/device.proto \
-            hwip/accel/gen/l4-rpc/deepspan_accel/opcodes.go \
-            hwip/accel/gen/l6-sdk/deepspan_accel/models.py; do
+            hwip/accel/gen/kernel/deepspan_accel.h \
+            hwip/accel/gen/sim/deepspan_accel/ops.hpp \
+            hwip/accel/gen/proto/deepspan_accel/v1/device.proto \
+            hwip/accel/gen/rpc/accel.hpp \
+            hwip/accel/gen/sdk/deepspan_accel/models.py; do
             test -f "$f" && echo "OK: $f" || (echo "MISSING: $f" && exit 1)
           done

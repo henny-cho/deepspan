@@ -6,12 +6,12 @@ on:
   push:
     branches: [main]
     paths:
-      - 'l2/kernel/**'
+      - 'kernel/**'
       - '.github/workflows/ci-kernel.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'l2/kernel/**'
+      - 'kernel/**'
 
 jobs:
   kunit:
@@ -29,7 +29,7 @@ jobs:
             libelf-dev libssl-dev bc
 
       - name: Run KUnit tests (UML target)
-        working-directory: l2/kernel
+        working-directory: kernel
         run: |
           # Use kunit_tool to build and run tests in UML
           # Requires kernel source — use a pre-built KUnit runner in CI

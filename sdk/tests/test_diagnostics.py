@@ -2,8 +2,13 @@
 import json
 import pytest
 from unittest.mock import MagicMock, patch
-from deepspan import AIDiagnostics
 from deepspan.models import DeviceInfo, DeviceState, FirmwareInfo, TelemetrySnapshot
+
+try:
+    from deepspan import AIDiagnostics
+except ImportError:
+    pytest.skip("anthropic not installed — skipping diagnostics tests",
+                allow_module_level=True)
 
 
 @pytest.fixture

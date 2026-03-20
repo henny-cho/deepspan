@@ -15,8 +15,9 @@ if ! command -v clang-tidy &>/dev/null; then
     exit 0
 fi
 
-# Collect staged C++ files.
-STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|cxx|cc|hpp|hxx|h)$' || true)
+# Collect staged C++ translation units (not headers — headers have no
+# standalone entry in compile_commands.json and are linted transitively).
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|cxx|cc)$' || true)
 if [[ -z "$STAGED" ]]; then
     exit 0
 fi
@@ -32,7 +33,7 @@ FAILED=()
 while IFS= read -r file; do
     abs="${REPO_ROOT}/${file}"
     echo "[pre-commit] clang-tidy: ${file}"
-    if ! clang-tidy -p "$COMPILE_DB" "$abs" -- 2>/dev/null; then
+    if ! clang-tidy -p "$COMPILE_DB" "$abs" 2>/dev/null; then
         FAILED+=("$file")
     fi
 done <<< "$STAGED"

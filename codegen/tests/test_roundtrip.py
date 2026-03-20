@@ -14,7 +14,7 @@ import pytest
 from deepspan_codegen.generators.c_firmware import CFirmwareGenerator
 from deepspan_codegen.generators.c_kernel import CKernelGenerator
 from deepspan_codegen.generators.cpp_hwmodel import CppHwModelGenerator
-from deepspan_codegen.generators.go_opcodes import GoOpcodesGenerator
+from deepspan_codegen.generators.cpp_opcodes import CppOpcodesGenerator
 from deepspan_codegen.generators.proto import ProtoGenerator
 from deepspan_codegen.generators.python_sdk import PythonSdkGenerator
 from tests.conftest import FULL_YAML
@@ -29,7 +29,7 @@ def all_generated(full_desc, tmp_path):
         "cpp_hwmodel": CppHwModelGenerator(full_desc, out).generate()[0].read_text(),
         "c_firmware":  CFirmwareGenerator(full_desc, out).generate()[0].read_text(),
         "proto":       ProtoGenerator(full_desc, out).generate()[0].read_text(),
-        "go":          GoOpcodesGenerator(full_desc, out).generate()[0].read_text(),
+        "cpp_opcodes": CppOpcodesGenerator(full_desc, out).generate()[0].read_text(),
         "python":      PythonSdkGenerator(full_desc, out).generate()[0].read_text(),
     }
 
@@ -45,11 +45,9 @@ class TestOpcodeConsistency:
     def test_cpp_echo_opcode(self, all_generated):
         assert "ECHO = 0x0001U" in all_generated["cpp_hwmodel"]
 
-    def test_go_echo_opcode_no_u_suffix(self, all_generated):
-        go = all_generated["go"]
-        assert "0x0001" in go
-        # Must not contain C-style U suffix in Go file
-        assert not re.search(r"0x[0-9a-fA-F]+U", go)
+    def test_cpp_opcodes_echo_opcode(self, all_generated):
+        cpp = all_generated["cpp_opcodes"]
+        assert "ECHO = 0x0001U" in cpp
 
     def test_proto_echo_enum_value_1(self, all_generated):
         """proto3 uses sequential integers, not hex wire values."""
@@ -59,14 +57,8 @@ class TestOpcodeConsistency:
         assert "ECHO = 0x1" in all_generated["python"]
 
     def test_all_three_opcodes_present(self, all_generated):
-        # Go uses camelCase (OpEcho, OpProcess, OpStatus), not ECHO/PROCESS/STATUS
-        go_content = all_generated["go"]
-        assert "OpEcho" in go_content, "OpEcho missing in go"
-        assert "OpProcess" in go_content, "OpProcess missing in go"
-        assert "OpStatus" in go_content, "OpStatus missing in go"
-
-        # All other targets use ECHO/PROCESS/STATUS in some form
-        for target in ("c_kernel", "cpp_hwmodel", "c_firmware", "proto", "python"):
+        # All targets use ECHO/PROCESS/STATUS in some form
+        for target in ("c_kernel", "cpp_hwmodel", "cpp_opcodes", "c_firmware", "proto", "python"):
             content = all_generated[target]
             assert "ECHO" in content, f"ECHO missing in {target}"
             assert "PROCESS" in content, f"PROCESS missing in {target}"
@@ -97,13 +89,10 @@ class TestRegisterConsistency:
         assert "RESULT_DATA0 = 0x0114U" in cpp
         assert "RESULT_DATA1 = 0x0118U" in cpp
 
-    def test_go_reg_constants(self, all_generated):
-        import re
-        go = all_generated["go"]
-        # camel filter: cmd_opcode → CmdOpcode; gofmt may add alignment tabs
-        assert re.search(r"regCmdOpcode\s+uint32\s*=\s*0x0100", go)
-        # camel filter: result_data0 → ResultData0
-        assert re.search(r"regResultData0\s+uint32\s*=\s*0x0114", go)
+    def test_cpp_opcodes_reg_constants(self, all_generated):
+        cpp = all_generated["cpp_opcodes"]
+        assert "CMD_OPCODE = 0x0100U" in cpp
+        assert "RESULT_DATA0 = 0x0114U" in cpp
 
     def test_firmware_includes_kernel_header(self, all_generated):
         fw = all_generated["c_firmware"]
@@ -140,24 +129,26 @@ class TestProtoInvariants:
         assert "int32 status = 1;" in proto
 
 
-# ── Go code structural invariants ────────────────────────────────────────────
+# ── C++ opcodes structural invariants ────────────────────────────────────────
 
-class TestGoInvariants:
-    def test_op_to_hw_opcode_all_cases(self, all_generated):
-        go = all_generated["go"]
-        assert "case 1:" in go
-        assert "case 2:" in go
-        assert "case 3:" in go
-        assert "return 0, false" in go
+class TestCppOpcodesInvariants:
+    def test_proto_op_to_hw_op_all_cases(self, all_generated):
+        cpp = all_generated["cpp_opcodes"]
+        assert "case 1:" in cpp
+        assert "case 2:" in cpp
+        assert "case 3:" in cpp
+        assert "return {0u, false}" in cpp
 
-    def test_validate_opcode_comma_list(self, all_generated):
-        go = all_generated["go"]
-        assert "case OpEcho, OpProcess, OpStatus:" in go
+    def test_validate_opcode_all_ops(self, all_generated):
+        cpp = all_generated["cpp_opcodes"]
+        assert "Op::ECHO" in cpp
+        assert "Op::PROCESS" in cpp
+        assert "Op::STATUS" in cpp
 
-    def test_no_u_suffix_anywhere(self, all_generated):
-        go = all_generated["go"]
-        assert not re.search(r"\b0x[0-9a-fA-F]+U\b", go), \
-            "C-style U suffix found in Go file"
+    def test_u_suffix_present(self, all_generated):
+        cpp = all_generated["cpp_opcodes"]
+        assert re.search(r"0x[0-9a-fA-F]+U", cpp), \
+            "C++ U suffix not found in cpp_opcodes file"
 
 
 # ── Python structural invariants ──────────────────────────────────────────────

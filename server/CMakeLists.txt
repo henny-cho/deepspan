@@ -2,43 +2,52 @@
 # server/CMakeLists.txt — C++20 gRPC server (HwipService + ManagementService + TelemetryService)
 #
 # Requires: gRPC C++ (system package or vcpkg), protobuf, spdlog
-# The proto stubs (*.pb.cc / *.grpc.pb.cc) are generated at configure time by
-# protobuf_generate() and grpc_generate_cpp() — they are NOT committed.
+# Proto stubs (*.pb.cc / *.grpc.pb.cc) are generated at configure/build time
+# via explicit add_custom_command — they are NOT committed.
 
 cmake_minimum_required(VERSION 3.27)
 
 find_package(gRPC CONFIG REQUIRED)
-find_package(Protobuf CONFIG REQUIRED)
+find_package(Protobuf REQUIRED)
 
 # ── Proto stub generation ─────────────────────────────────────────────────────
-# Platform protos (api/proto/) generate C++ stubs into the build directory.
 set(PROTO_SRC_DIR "${CMAKE_SOURCE_DIR}/api/proto")
 file(GLOB_RECURSE PROTO_FILES "${PROTO_SRC_DIR}/*.proto")
 
-# protobuf + gRPC code generation
+get_target_property(GRPC_CPP_PLUGIN_EXE gRPC::grpc_cpp_plugin LOCATION)
+
 set(PROTO_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/proto_gen")
 file(MAKE_DIRECTORY "${PROTO_OUT_DIR}")
 
-# Generate .pb.cc / .pb.h
-protobuf_generate(
-    LANGUAGE cpp
-    OUT_VAR PROTO_SRCS
-    PROTOS ${PROTO_FILES}
-    IMPORT_DIRS "${PROTO_SRC_DIR}"
-    PROTOC_OUT_DIR "${PROTO_OUT_DIR}"
-)
+set(PROTO_SRCS "")
+set(GRPC_SRCS  "")
 
-# Generate .grpc.pb.cc / .grpc.pb.h
-get_target_property(GRPC_CPP_PLUGIN_EXE gRPC::grpc_cpp_plugin LOCATION)
-protobuf_generate(
-    LANGUAGE grpc
-    OUT_VAR GRPC_SRCS
-    GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc
-    PLUGIN "protoc-gen-grpc=${GRPC_CPP_PLUGIN_EXE}"
-    PROTOS ${PROTO_FILES}
-    IMPORT_DIRS "${PROTO_SRC_DIR}"
-    PROTOC_OUT_DIR "${PROTO_OUT_DIR}"
-)
+foreach(_proto_file ${PROTO_FILES})
+    # Relative path from the import root (api/proto/) → deepspan/v1/device.proto
+    file(RELATIVE_PATH _rel_path "${PROTO_SRC_DIR}" "${_proto_file}")
+    get_filename_component(_rel_dir  "${_rel_path}" DIRECTORY)
+    get_filename_component(_basename "${_rel_path}" NAME_WLE)
+
+    set(_pb_cc   "${PROTO_OUT_DIR}/${_rel_dir}/${_basename}.pb.cc")
+    set(_pb_h    "${PROTO_OUT_DIR}/${_rel_dir}/${_basename}.pb.h")
+    set(_grpc_cc "${PROTO_OUT_DIR}/${_rel_dir}/${_basename}.grpc.pb.cc")
+    set(_grpc_h  "${PROTO_OUT_DIR}/${_rel_dir}/${_basename}.grpc.pb.h")
+
+    add_custom_command(
+        OUTPUT "${_pb_cc}" "${_pb_h}" "${_grpc_cc}" "${_grpc_h}"
+        COMMAND "${Protobuf_PROTOC_EXECUTABLE}"
+            "--cpp_out=${PROTO_OUT_DIR}"
+            "--grpc_out=${PROTO_OUT_DIR}"
+            "--plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN_EXE}"
+            "-I${PROTO_SRC_DIR}"
+            "${_proto_file}"
+        DEPENDS "${_proto_file}"
+        COMMENT "Compiling proto: ${_rel_path}"
+    )
+
+    list(APPEND PROTO_SRCS "${_pb_cc}")
+    list(APPEND GRPC_SRCS  "${_grpc_cc}")
+endforeach()
 
 # ── deepspan-server executable ────────────────────────────────────────────────
 add_executable(deepspan-server

@@ -47,7 +47,7 @@ endif()
 # gRPC C++ — required by server/ and HWIP plugins.
 if(DEEPSPAN_BUILD_SERVER OR DEEPSPAN_BUILD_HWIP)
     find_package(gRPC CONFIG REQUIRED)
-    find_package(Protobuf CONFIG REQUIRED)
+    find_package(Protobuf REQUIRED)
 endif()
 
 # ── Component builds ──────────────────────────────────────────────────

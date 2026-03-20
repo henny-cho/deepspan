@@ -14,17 +14,17 @@ runs:
       run: |
         sudo apt-get update -qq
         sudo apt-get install -y --no-install-recommends \
-          cmake ninja-build liburing-dev libgtest-dev pkg-config
-
-    - name: Install spdlog (system deps preset)
-      if: ${{ inputs.preset == 'dev' }}
-      shell: bash
-      run: sudo apt-get install -y --no-install-recommends libspdlog-dev
+          cmake ninja-build pkg-config \
+          liburing-dev libgtest-dev \
+          libgrpc++-dev libgrpc-dev \
+          libprotobuf-dev \
+          protobuf-compiler protobuf-compiler-grpc \
+          libspdlog-dev
 
     - name: Install deepspan-codegen (hwip preset)
-      if: ${{ inputs.preset == 'dev-hwip' }}
+      if: ${{ inputs.preset == 'dev-hwip' || inputs.preset == 'dev-multi-hwip' }}
       shell: bash
-      working-directory: tools/deepspan-codegen
+      working-directory: codegen
       run: pip install --break-system-packages -e .
 
     - uses: hendrikmuhs/ccache-action@v1.2

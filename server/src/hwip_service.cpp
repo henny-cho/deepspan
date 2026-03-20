@@ -3,6 +3,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <functional>
 #include <stdexcept>
 
 namespace deepspan::server {
@@ -47,8 +48,9 @@ grpc::Status HwipServiceImpl::GetDeviceStatus(
         return grpc::Status{grpc::StatusCode::NOT_FOUND,
                             "HWIP type not registered: " + hwip_type};
     }
-    resp->set_device_id(req->device_id());
-    resp->set_state(
+    auto* info = resp->mutable_info();
+    info->set_device_id(req->device_id());
+    info->set_state(
         static_cast<deepspan::v1::DeviceState>((*sub_opt)->device_state()));
     return grpc::Status::OK;
 }
@@ -69,11 +71,12 @@ grpc::Status HwipServiceImpl::SubmitRequest(
     }
     auto& sub = *sub_opt;
     try {
-        const auto& raw = req->data();
+        const auto& raw = req->payload();
         std::vector<uint8_t> data{raw.begin(), raw.end()};
         auto result = sub->submit(req->opcode(), std::move(data));
-        resp->set_request_id(result.request_id);
-        resp->set_response_data(
+        resp->set_request_id(static_cast<uint32_t>(
+            std::hash<std::string>{}(result.request_id) & 0xFFFFFFFF));
+        resp->set_result(
             std::string{result.response_data.begin(), result.response_data.end()});
     } catch (const std::exception& e) {
         spdlog::error("SubmitRequest failed for {}: {}", req->device_id(), e.what());

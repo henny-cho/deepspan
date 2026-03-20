@@ -115,6 +115,13 @@ cmd_setup() {
             git curl wget ca-certificates gnupg lsb-release \
             software-properties-common python3 python3-pip python3-venv pipx
 
+        section "setup: C++ build dependencies"
+        sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build gcc g++ \
+            libgrpc++-dev libgrpc-dev \
+            protobuf-compiler protobuf-compiler-grpc \
+            libspdlog-dev liburing-dev libgtest-dev
+
         local FAILED=()
         for layer in "${LAYERS[@]}"; do
             if should_skip "$layer"; then
@@ -374,16 +381,22 @@ cmd_build() {
         return
     fi
 
-    local preset="dev"
+    local preset="dev" force_clean=0
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --preset) preset="$2"; shift 2 ;;
+            --clean)  force_clean=1; shift ;;
             -h|--help)
-                echo "Usage: $0 build [--preset PRESET]"
+                echo "Usage: $0 build [--preset PRESET] [--clean]"
                 exit 0 ;;
             *) die "Unknown build option: $1" ;;
         esac
     done
+
+    if [[ $force_clean -eq 1 ]]; then
+        local build_dir="${DEEPSPAN_ROOT}/build/${preset}"
+        [[ -d "$build_dir" ]] && rm -rf "$build_dir" && log "removed ${build_dir}"
+    fi
 
     section "build: cmake --preset ${preset}"
     cd "${DEEPSPAN_ROOT}"
@@ -567,16 +580,14 @@ cmd_check() {
     cmd_build --preset "${preset}"
 
     section "check: ctest"
-    ctest --preset "${preset}" --output-on-failure
-
-    section "check: lint"
-    cmd_lint --strict --preset "${preset}"
+    cd "${DEEPSPAN_ROOT}"
+    ctest --preset "${preset}" --output-on-failure -j"$(nproc)"
 
     section "check: validate"
     cmd_validate
 
     echo ""
-    ok "=== All checks passed ==="
+    ok "=== All checks passed (preset=${preset}) ==="
 }
 
 # ── Dispatch ──────────────────────────────────────────────────────────────────

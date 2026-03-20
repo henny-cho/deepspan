@@ -49,7 +49,7 @@ add_library(deepspan-userlib STATIC
 # both in monorepo (in-tree) and installed (find_package) builds.
 add_library(Deepspan::deepspan-userlib ALIAS deepspan-userlib)
 
-set(DEEPSPAN_KERNEL_UAPI_DIR "${PROJECT_SOURCE_DIR}/../../l2/kernel/include/uapi"
+set(DEEPSPAN_KERNEL_UAPI_DIR "${PROJECT_SOURCE_DIR}/../../kernel/include/uapi"
     CACHE PATH "Kernel UAPI header directory (provides <linux/deepspan.h>)")
 
 target_include_directories(deepspan-userlib

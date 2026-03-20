@@ -27,4 +27,5 @@ dev-dependencies = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
     "typer[all]>=0.12",
+    "ruff>=0.4",
 ]

@@ -57,7 +57,7 @@ class TestCLI:
         assert len(files) == 1
         assert "dispatch" not in files[0].name  # firmware dispatch excluded
 
-    def test_generate_single_target_go(self, tmp_path):
+    def test_generate_single_target_rpc(self, tmp_path):
         desc_path = tmp_path / "hwip.yaml"
         desc_path.write_text(MINIMAL_YAML)
         out_dir = tmp_path / "gen"
@@ -65,10 +65,10 @@ class TestCLI:
         runner.invoke(app, [
             "--descriptor", str(desc_path),
             "--out", str(out_dir),
-            "--target", "go",
+            "--target", "rpc",
         ])
-        go_files = list(out_dir.rglob("*.go"))
-        assert len(go_files) == 1
+        hpp_files = list(out_dir.rglob("*.hpp"))
+        assert len(hpp_files) == 1
 
     def test_generate_comma_targets(self, tmp_path):
         desc_path = tmp_path / "hwip.yaml"
@@ -78,7 +78,7 @@ class TestCLI:
         runner.invoke(app, [
             "--descriptor", str(desc_path),
             "--out", str(out_dir),
-            "--target", "kernel,go",
+            "--target", "kernel,rpc",
         ])
         files = list(out_dir.rglob("*"))
         non_dirs = [f for f in files if f.is_file()]

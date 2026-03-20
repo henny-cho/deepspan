@@ -9,7 +9,7 @@ import pytest
 from deepspan_codegen.generators.c_firmware import CFirmwareGenerator
 from deepspan_codegen.generators.c_kernel import CKernelGenerator
 from deepspan_codegen.generators.cpp_hwmodel import CppHwModelGenerator
-from deepspan_codegen.generators.go_opcodes import GoOpcodesGenerator
+from deepspan_codegen.generators.cpp_opcodes import CppOpcodesGenerator
 from deepspan_codegen.generators.proto import ProtoGenerator
 from deepspan_codegen.generators.python_sdk import PythonSdkGenerator
 
@@ -234,66 +234,58 @@ class TestProtoGenerator:
         assert "ACCEL_OP_STATUS = 3;" in c
 
 
-# ── Go Opcodes Generator ──────────────────────────────────────────────────────
+# ── C++ Opcodes Generator ─────────────────────────────────────────────────────
 
-class TestGoOpcodesGenerator:
+class TestCppOpcodesGenerator:
     def test_output_path(self, minimal_desc, tmp_path):
-        p = _gen_path(GoOpcodesGenerator, minimal_desc, tmp_path)
-        assert p.name == "opcodes.go"
-        assert "deepspan_accel" in str(p)
+        p = _gen_path(CppOpcodesGenerator, minimal_desc, tmp_path)
+        assert p.name == "accel.hpp"
+        assert "rpc" in str(p)
 
-    def test_package_declaration(self, minimal_desc, tmp_path):
-        c = _gen(GoOpcodesGenerator, minimal_desc, tmp_path)
-        assert "package accelserver" in c
+    def test_namespace(self, minimal_desc, tmp_path):
+        c = _gen(CppOpcodesGenerator, minimal_desc, tmp_path)
+        assert "namespace deepspan_accel" in c
 
-    def test_opcode_constant_go_syntax(self, minimal_desc, tmp_path):
-        """Go uses 0x0001 (no U suffix); gofmt may add alignment whitespace."""
-        import re
-        c = _gen(GoOpcodesGenerator, minimal_desc, tmp_path)
-        # gofmt aligns consts with tabs, so use regex to allow whitespace between name and type
-        assert re.search(r"OpEcho\s+uint32\s*=\s*0x0001", c)
-        assert "0x0001U" not in c  # C-style suffix must NOT appear
+    def test_opcode_constant_cpp_syntax(self, minimal_desc, tmp_path):
+        """C++ uses 0x0001U with U suffix."""
+        c = _gen(CppOpcodesGenerator, minimal_desc, tmp_path)
+        assert "ECHO = 0x0001U" in c
 
-    def test_register_constant_go_syntax(self, minimal_desc, tmp_path):
-        """camel filter converts cmd_opcode → CmdOpcode (proper Go camelCase)."""
-        import re
-        c = _gen(GoOpcodesGenerator, minimal_desc, tmp_path)
-        # camel filter: cmd_opcode → CmdOpcode (not Cmdopcode from Jinja2 title)
-        assert re.search(r"regCmdOpcode\s+uint32\s*=\s*0x0100", c)
-        assert "0x0100U" not in c
+    def test_register_constant_cpp_syntax(self, minimal_desc, tmp_path):
+        """Register offsets use UPPER_CASE with U suffix."""
+        c = _gen(CppOpcodesGenerator, minimal_desc, tmp_path)
+        assert "CMD_OPCODE = 0x0100U" in c
 
-    def test_op_to_hw_opcode_function(self, minimal_desc, tmp_path):
-        c = _gen(GoOpcodesGenerator, minimal_desc, tmp_path)
-        assert "func AccelOpToHwOpcode(protoOp int32) (uint32, bool)" in c
+    def test_proto_op_to_hw_op_function(self, minimal_desc, tmp_path):
+        c = _gen(CppOpcodesGenerator, minimal_desc, tmp_path)
+        assert "proto_op_to_hw_op" in c
         assert "case 1:" in c
-        assert "return OpEcho, true" in c
+        assert "Op::ECHO" in c
 
-    def test_validate_opcode_comma_case(self, minimal_desc, tmp_path):
-        """ValidateOpcode must use comma-separated case, not empty fall-through."""
-        c = _gen(GoOpcodesGenerator, minimal_desc, tmp_path)
-        assert "func ValidateOpcode(op uint32) bool" in c
-        # Single-op case: just OpEcho
-        assert "case OpEcho" in c
+    def test_validate_opcode_function(self, minimal_desc, tmp_path):
+        c = _gen(CppOpcodesGenerator, minimal_desc, tmp_path)
+        assert "validate_opcode" in c
+        assert "Op::ECHO" in c
         assert "return true" in c
 
-    def test_validate_opcode_multi_comma(self, full_desc, tmp_path):
-        """With 3 ops, ValidateOpcode uses 'case OpEcho, OpProcess, OpStatus:'."""
-        c = _gen(GoOpcodesGenerator, full_desc, tmp_path)
-        assert "case OpEcho, OpProcess, OpStatus:" in c
+    def test_validate_opcode_multi(self, full_desc, tmp_path):
+        """With 3 ops, validate_opcode has all three Op:: cases."""
+        c = _gen(CppOpcodesGenerator, full_desc, tmp_path)
+        assert "Op::ECHO" in c
+        assert "Op::PROCESS" in c
+        assert "Op::STATUS" in c
 
     def test_unspecified_returns_false(self, full_desc, tmp_path):
-        """protoOp=0 (UNSPECIFIED) must return (0, false)."""
-        c = _gen(GoOpcodesGenerator, full_desc, tmp_path)
+        """Unknown proto_op must return {0, false}."""
+        c = _gen(CppOpcodesGenerator, full_desc, tmp_path)
         assert "default:" in c
-        assert "return 0, false" in c
+        assert "return {0u, false}" in c
 
     def test_all_ops_present(self, full_desc, tmp_path):
-        import re
-        c = _gen(GoOpcodesGenerator, full_desc, tmp_path)
-        # gofmt aligns consts with tabs — use regex to allow alignment whitespace
-        assert re.search(r"OpEcho\s+uint32\s*=\s*0x0001", c)
-        assert re.search(r"OpProcess\s+uint32\s*=\s*0x0002", c)
-        assert re.search(r"OpStatus\s+uint32\s*=\s*0x0003", c)
+        c = _gen(CppOpcodesGenerator, full_desc, tmp_path)
+        assert "ECHO = 0x0001U" in c
+        assert "PROCESS = 0x0002U" in c
+        assert "STATUS = 0x0003U" in c
 
 
 # ── Python SDK Generator ──────────────────────────────────────────────────────

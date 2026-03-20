@@ -42,7 +42,7 @@ target_link_libraries(deepspan-userlib-tests
 
 # Test files include <linux/deepspan.h> which lives in the kernel UAPI tree.
 target_include_directories(deepspan-userlib-tests PRIVATE
-    ${PROJECT_SOURCE_DIR}/../../l2/kernel/include/uapi
+    ${PROJECT_SOURCE_DIR}/../../kernel/include/uapi
 )
 
 target_compile_features(deepspan-userlib-tests PRIVATE cxx_std_23)

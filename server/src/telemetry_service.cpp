@@ -11,11 +11,9 @@ grpc::Status TelemetryServiceImpl::GetTelemetry(
     deepspan::v1::GetTelemetryResponse* resp) {
     spdlog::debug("GetTelemetry: device_id={}", req->device_id());
     // Stub: return zero-filled snapshot.
+    // Stub: return a zero-filled snapshot with just the device_id populated.
     auto* snap = resp->mutable_snapshot();
     snap->set_device_id(req->device_id());
-    snap->set_timestamp_ms(0);
-    snap->set_cpu_usage(0.0f);
-    snap->set_mem_usage(0.0f);
     return grpc::Status::OK;
 }
 
