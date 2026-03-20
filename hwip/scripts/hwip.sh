@@ -27,7 +27,6 @@ DEEPSPAN_ROOT="$(cd "${HWIP_ROOT}/.." && pwd)"
 source "${SCRIPT_DIR}/lib.sh"
 hwip_setup_path
 HWIP_LOG_PREFIX="[hwip]"
-GO="${GO:-/usr/local/go/bin/go}"
 
 COMMAND="${1:-}"
 shift || true
@@ -35,7 +34,7 @@ shift || true
 # ── Usage ─────────────────────────────────────────────────────────────────────
 usage() {
     cat <<'EOF'
-deepspan HWIP developer CLI
+deepspan HWIP developer CLI (C++20)
 
 Usage:
   hwip.sh <command> [options]
@@ -45,49 +44,40 @@ Lifecycle commands:
               Install deepspan-codegen and generate all HWIP artifacts.
               --skip-codegen   Skip codegen after installing the tool
 
-  gen       [--hwip TYPE] [--stage 1|2] [--check]
-              Two-stage HWIP codegen pipeline:
-                Stage 1: hwip.yaml → proto + language artifacts (deepspan-codegen)
-                Stage 2: proto → Go/Python gRPC stubs (buf generate)
+  gen       [--hwip TYPE] [--check] [--all-hwip]
+              HWIP codegen pipeline:
+                hwip.yaml → gen/{kernel,firmware,sim,rpc,proto,sdk}/
               --hwip TYPE    Run for a single HWIP type only
-              --stage 1|2   Run only the specified stage
+              --all-hwip     Regenerate all HWIP types
               --check        Dry-run: exit 1 if generated files are stale
 
-  build
-              Build hwsim, demo-server, demo-client, and the accel l4-plugin.
-
-  lint      [--module MOD]
-              Run gofmt + go vet + golangci-lint on all HWIP Go modules.
-              --module MOD   Lint a single module (e.g. accel/l4-plugin)
+  build     [--preset PRESET] [--target TARGET]
+              Build HWIP plugin(s) via CMake.
+              --preset PRESET   CMake preset (default: dev-hwip)
+              --target TARGET   CMake target (default: all)
 
   validate  [--hwip TYPE] [--fix] [--skip-syntax]
-              7-check validation of generated artifacts:
+              5-check validation of generated artifacts:
                 1. Codegen stale check
                 2. C kernel header syntax (gcc -fsyntax-only)
-                3. C++ hw_model header syntax (g++ -fsyntax-only)
-                4. Go format (gofmt -l)
-                5. Go vet
-                6. Python syntax (py_compile)
-                7. Proto lint (buf lint)
+                3. C++ sim header syntax (g++ -std=c++20 -fsyntax-only)
+                4. Python syntax (py_compile)
+                5. Proto lint (buf lint)
               --hwip TYPE    Validate a single HWIP type
-              --fix          Auto-fix gofmt and stale codegen
-              --skip-syntax  Skip C / C++ / Go syntax checks
+              --fix          Auto-fix stale codegen
+              --skip-syntax  Skip C / C++ syntax checks
 
-  demo      [--stub] [--addr ADDR] [--shm NAME] [--verbose]
-              Build and run the full HWIP demo stack:
-                hwsim → demo-server → demo-client
-              --stub         Skip hwsim; use stub (no-hardware) mode
-              --addr ADDR    Server listen address (default: :8080)
-              --shm NAME     POSIX shm basename (default: deepspan_accel_0)
-              --verbose      Enable hwsim verbose logging
+  demo      [--addr ADDR] [--preset PRESET]
+              Run the multi-HWIP Python demo (requires server to be running).
+              --addr ADDR    Server address (default: localhost:8080)
 
-  test      [--stub] [--port N]
-              Automated integration tests (9 curl-based test cases).
-              --stub         Start demo-server in stub mode (no hardware)
-              --port N       Server port (default: 8080)
+  test      [--preset PRESET] [--port N]
+              Automated integration tests (ctest + Python smoke test).
+              --preset PRESET  CMake preset (default: dev-hwip)
+              --port N         Server port (default: 8080)
 
-  check
-              Full CI gate: build → lint → validate → test (stub mode).
+  check     [--preset PRESET]
+              Full CI gate: build → validate → test.
 
   help      Show this help and exit.
 EOF
@@ -130,16 +120,17 @@ cmd_setup() {
         fi
     }
     _check_required python3 "Python 3.11+ required"
+    _check_required cmake   "needed for build"
     _check_required gcc     "needed for C syntax check in validate"
     _check_required g++     "needed for C++ syntax check in validate"
-    _check_optional go      "https://go.dev/dl/ (needed for Go tests)"
+    _check_optional uv      "https://docs.astral.sh/uv (needed for Python smoke tests)"
     _check_optional buf     "https://buf.build/docs/installation (needed for proto lint)"
     if [[ "$prereq_ok" != "true" ]]; then
         die "Missing required tools. Install them and re-run."
     fi
 
     section "setup: deepspan-codegen"
-    local CODEGEN_SRC="${DEEPSPAN_ROOT}/tools/deepspan-codegen"
+    local CODEGEN_SRC="${DEEPSPAN_ROOT}/codegen"
     [[ -d "$CODEGEN_SRC" ]] || die "deepspan-codegen not found at ${CODEGEN_SRC}"
 
     if command -v deepspan-codegen &>/dev/null; then
@@ -175,43 +166,37 @@ cmd_setup() {
     echo ""
     echo "Next steps:"
     echo "  ./hwip/scripts/hwip.sh validate    # artifact validation"
-    echo "  ./hwip/scripts/hwip.sh build       # build demo binaries"
-    echo "  ./hwip/scripts/hwip.sh test --stub # integration tests"
+    echo "  ./hwip/scripts/hwip.sh build       # build HWIP plugins"
+    echo "  ./hwip/scripts/hwip.sh test        # integration tests"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
 # gen
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_gen() {
-    local hwip_filter="" stage_filter="" check_mode=false
+    local hwip_filter="" check_mode=false all_hwip=false
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --hwip)  hwip_filter="$2"; shift 2 ;;
-            --stage) stage_filter="$2"; shift 2 ;;
-            --check) check_mode=true; shift ;;
+            --hwip)     hwip_filter="$2"; shift 2 ;;
+            --all-hwip) all_hwip=true; shift ;;
+            --check)    check_mode=true; shift ;;
             -h|--help)
-                echo "Usage: $0 gen [--hwip TYPE] [--stage 1|2] [--check]"
+                echo "Usage: $0 gen [--hwip TYPE] [--all-hwip] [--check]"
                 exit 0 ;;
             *) die "Unknown gen option: $1" ;;
         esac
     done
 
-    # Pre-flight
-    if [[ "$stage_filter" != "2" ]]; then
-        command -v deepspan-codegen &>/dev/null \
-            || die "deepspan-codegen not found — run: ./hwip/scripts/hwip.sh setup"
-    fi
-    if [[ "$stage_filter" != "1" ]]; then
-        command -v buf &>/dev/null \
-            || die "buf not found — see https://buf.build/docs/installation"
-    fi
+    command -v deepspan-codegen &>/dev/null \
+        || die "deepspan-codegen not found — run: ./hwip/scripts/hwip.sh setup"
 
-    # Discover HWIPs
+    # Discover HWIPs (skip _template and non-hwip dirs)
     local hwips=()
     for hwip_dir in "${HWIP_ROOT}"/*/; do
         local hwip_name
         hwip_name="$(basename "$hwip_dir")"
+        [[ "$hwip_name" == "_template" ]] && continue
         [[ -f "$hwip_dir/hwip.yaml" ]] || continue
         [[ -n "$hwip_filter" && "$hwip_name" != "$hwip_filter" ]] && continue
         hwips+=("$hwip_name")
@@ -220,52 +205,40 @@ cmd_gen() {
         || die "No HWIPs found${hwip_filter:+ matching '${hwip_filter}'}"
     log "HWIPs: ${hwips[*]}"
 
-    # Stage 1: hwip.yaml → language artifacts
-    if [[ "$stage_filter" != "2" ]]; then
-        for hwip in "${hwips[@]}"; do
-            local hwip_dir="${HWIP_ROOT}/${hwip}"
-            if $check_mode; then
-                section "gen check: $hwip"
-                local TMP_GEN
-                TMP_GEN="$(mktemp -d)"
-                trap 'rm -rf "$TMP_GEN"' EXIT
-                deepspan-codegen \
-                    --descriptor "${hwip_dir}/hwip.yaml" \
-                    --out "$TMP_GEN" --target all
-                local stale=false
-                for layer_dir in "$TMP_GEN"/l*; do
-                    local layer
-                    layer="$(basename "$layer_dir")"
-                    if ! diff -rq \
-                            --exclude='__pycache__' --exclude='*.pyc' \
-                            "$layer_dir" "${hwip_dir}/gen/${layer}" &>/dev/null; then
-                        stale=true
-                        warn "STALE: ${hwip}/gen/${layer}/"
-                        diff -r --exclude='__pycache__' --exclude='*.pyc' \
-                            "$layer_dir" "${hwip_dir}/gen/${layer}" 2>&1 | head -10 >&2 || true
-                    fi
-                done
-                if $stale; then
-                    die "${hwip}/gen/ is stale — run: ./hwip/scripts/hwip.sh gen --hwip ${hwip}"
+    # hwip.yaml → gen/{kernel,firmware,sim,rpc,proto,sdk}/
+    for hwip in "${hwips[@]}"; do
+        local hwip_dir="${HWIP_ROOT}/${hwip}"
+        if $check_mode; then
+            section "gen check: $hwip"
+            local TMP_GEN
+            TMP_GEN="$(mktemp -d)"
+            trap 'rm -rf "$TMP_GEN"' EXIT
+            deepspan-codegen --descriptor "${hwip_dir}/hwip.yaml" \
+                --out "$TMP_GEN" --target all
+            local stale=false
+            for layer_dir in "$TMP_GEN"/*/; do
+                local layer
+                layer="$(basename "$layer_dir")"
+                if ! diff -rq \
+                        --exclude='__pycache__' --exclude='*.pyc' \
+                        "$layer_dir" "${hwip_dir}/gen/${layer}" &>/dev/null; then
+                    stale=true
+                    warn "STALE: ${hwip}/gen/${layer}/"
+                    diff -r --exclude='__pycache__' --exclude='*.pyc' \
+                        "$layer_dir" "${hwip_dir}/gen/${layer}" 2>&1 | head -10 >&2 || true
                 fi
-                ok "${hwip}/gen/ is up-to-date"
-            else
-                section "gen stage1: $hwip"
-                deepspan-codegen \
-                    --descriptor "${hwip_dir}/hwip.yaml" \
-                    --out "${hwip_dir}/gen" --target all
-                ok "${hwip} stage 1 complete"
+            done
+            if $stale; then
+                die "${hwip}/gen/ is stale — run: ./hwip/scripts/hwip.sh gen --hwip ${hwip}"
             fi
-        done
-    fi
-
-    # Stage 2: proto → Go/Python gRPC stubs
-    if [[ "$stage_filter" != "1" ]] && ! $check_mode; then
-        section "gen stage2: buf generate"
-        cd "${HWIP_ROOT}"
-        buf generate
-        ok "buf generate complete"
-    fi
+            ok "${hwip}/gen/ is up-to-date"
+        else
+            section "gen: $hwip"
+            deepspan-codegen --descriptor "${hwip_dir}/hwip.yaml" \
+                --out "${hwip_dir}/gen" --target all
+            ok "${hwip} codegen complete → gen/{kernel,firmware,sim,rpc,proto,sdk}/"
+        fi
+    done
 
     echo ""
     if $check_mode; then
@@ -280,26 +253,34 @@ cmd_gen() {
 # build
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_build() {
-    local BIN_DIR="${HWIP_ROOT}/.demo-bin"
-    mkdir -p "$BIN_DIR"
+    local preset="dev-hwip" target="all"
 
-    section "build: demo binaries"
-    (cd "${HWIP_ROOT}" && \
-        "$GO" build -o "$BIN_DIR/hwsim"       ./demo/cmd/hwsim && \
-        "$GO" build -o "$BIN_DIR/demo-server" ./demo/cmd/server && \
-        "$GO" build -o "$BIN_DIR/demo-client" ./demo/cmd/client)
-    ok "demo binaries built → ${BIN_DIR}"
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --preset) preset="$2"; shift 2 ;;
+            --target) target="$2"; shift 2 ;;
+            -h|--help)
+                echo "Usage: $0 build [--preset PRESET] [--target TARGET]"
+                exit 0 ;;
+            *) die "Unknown build option: $1" ;;
+        esac
+    done
 
-    section "build: accel l4-plugin"
-    (cd "${HWIP_ROOT}/accel/l4-plugin" && "$GO" build ./...)
-    ok "accel l4-plugin built"
+    section "build: cmake --preset ${preset} --target ${target}"
+    cd "${DEEPSPAN_ROOT}"
+    cmake --preset "${preset}"
+    if [[ "$target" == "all" ]]; then
+        cmake --build "build/${preset}" -j"$(nproc)"
+    else
+        cmake --build "build/${preset}" --target "${target}" -j"$(nproc)"
+    fi
+    ok "HWIP build complete (preset=${preset})"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# lint
+# lint  — delegate to platform dev.sh (clang-tidy)
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_lint() {
-    # Delegate to platform dev.sh to keep golangci-lint version in sync
     exec "${DEEPSPAN_ROOT}/scripts/dev.sh" lint "$@"
 }
 
@@ -347,7 +328,7 @@ cmd_validate() {
                 --descriptor "${HWIP_ROOT}/${hwip}/hwip.yaml" \
                 --out "$TMP_GEN" --target all >/dev/null 2>&1
             local stale=false
-            for layer_dir in "$TMP_GEN"/l*; do
+            for layer_dir in "$TMP_GEN"/*/; do
                 [[ -d "$layer_dir" ]] || continue
                 local layer
                 layer="$(basename "$layer_dir")"
@@ -372,7 +353,7 @@ cmd_validate() {
     fi
 
     # ── Check 2: C kernel header syntax ───────────────────────────────────────
-    section "validate: Check 2 — C kernel header syntax"
+    section "validate: Check 2 — C kernel header syntax (gen/kernel/)"
     if $skip_syntax; then
         skip "skipped via --skip-syntax"
     elif ! command -v gcc &>/dev/null; then
@@ -397,12 +378,12 @@ cmd_validate() {
                         pass "$rel (warnings only)"
                     fi
                 fi
-            done < <(find "${gen_dir}/l1-kernel" -name "*.h" -print0 2>/dev/null)
+            done < <(find "${gen_dir}/kernel" -name "*.h" -print0 2>/dev/null)
         done
     fi
 
-    # ── Check 3: C++ hw_model header syntax ───────────────────────────────────
-    section "validate: Check 3 — C++ l3-cpp header syntax"
+    # ── Check 3: C++20 gen/sim + gen/rpc header syntax ────────────────────────
+    section "validate: Check 3 — C++20 header syntax (gen/sim/ + gen/rpc/)"
     if $skip_syntax; then
         skip "skipped via --skip-syntax"
     elif ! command -v g++ &>/dev/null; then
@@ -412,12 +393,12 @@ cmd_validate() {
             local gen_dir="${HWIP_ROOT}/${hwip}/gen"
             while IFS= read -r -d '' hfile; do
                 local rel="${hfile#"${HWIP_ROOT}"/}"
-                if g++ -fsyntax-only -x c++ -std=c++17 \
+                if g++ -fsyntax-only -x c++ -std=c++20 \
                     -Wno-unused-variable "$hfile" 2>/dev/null; then
                     pass "$rel"
                 else
                     local errs
-                    errs="$(g++ -fsyntax-only -x c++ -std=c++17 \
+                    errs="$(g++ -fsyntax-only -x c++ -std=c++20 \
                         "$hfile" 2>&1 | grep ': error:' | head -5)"
                     if [[ -n "$errs" ]]; then
                         fail "$rel — C++ syntax error"; echo "$errs" >&2
@@ -425,61 +406,12 @@ cmd_validate() {
                         pass "$rel (warnings only)"
                     fi
                 fi
-            done < <(find "${gen_dir}/l3-cpp" -name "*.hpp" -print0 2>/dev/null)
+            done < <(find "${gen_dir}/sim" "${gen_dir}/rpc" -name "*.hpp" -print0 2>/dev/null)
         done
     fi
 
-    # ── Check 4: Go format ─────────────────────────────────────────────────────
-    section "validate: Check 4 — Go format"
-    if ! command -v gofmt &>/dev/null; then
-        skip "gofmt not found"
-    else
-        for hwip in "${hwips[@]}"; do
-            local gen_dir="${HWIP_ROOT}/${hwip}/gen"
-            while IFS= read -r -d '' gofile; do
-                local rel="${gofile#"${HWIP_ROOT}"/}"
-                local unformatted
-                unformatted="$(gofmt -l "$gofile")"
-                if [[ -z "$unformatted" ]]; then
-                    pass "$rel"
-                elif $fix_mode; then
-                    gofmt -w "$gofile"
-                    pass "$rel (reformatted)"
-                else
-                    fail "$rel — not gofmt-formatted"
-                    gofmt -d "$gofile" 2>&1 | head -20 >&2 || true
-                fi
-            done < <(find "${gen_dir}/l4-rpc" -name "*.go" -print0 2>/dev/null)
-        done
-    fi
-
-    # ── Check 5: Go vet ────────────────────────────────────────────────────────
-    section "validate: Check 5 — Go vet"
-    if ! command -v go &>/dev/null; then
-        skip "go not found"
-    else
-        for hwip in "${hwips[@]}"; do
-            local gen_dir="${HWIP_ROOT}/${hwip}/gen/l4-rpc"
-            [[ -d "$gen_dir" ]] || { skip "${hwip}/gen/l4-rpc/ not found"; continue; }
-            while IFS= read -r -d '' gofile; do
-                local rel="${gofile#"${HWIP_ROOT}"/}"
-                local TMP_MOD
-                TMP_MOD="$(mktemp -d)"
-                cp "$gofile" "$TMP_MOD/"
-                printf 'module gen_validate\ngo 1.21\n' > "$TMP_MOD/go.mod"
-                if (cd "$TMP_MOD" && GOWORK=off go vet .) 2>/dev/null; then
-                    pass "$rel"
-                else
-                    fail "$rel — go vet failed"
-                    (cd "$TMP_MOD" && GOWORK=off go vet .) 2>&1 | head -10 >&2 || true
-                fi
-                rm -rf "$TMP_MOD"
-            done < <(find "$gen_dir" -name "*.go" -print0 2>/dev/null)
-        done
-    fi
-
-    # ── Check 6: Python syntax ─────────────────────────────────────────────────
-    section "validate: Check 6 — Python syntax"
+    # ── Check 4: Python syntax ─────────────────────────────────────────────────
+    section "validate: Check 4 — Python syntax (gen/sdk/)"
     if ! command -v python3 &>/dev/null; then
         skip "python3 not found"
     else
@@ -493,30 +425,30 @@ cmd_validate() {
                     fail "$rel — Python syntax error"
                     python3 -m py_compile "$pyfile" 2>&1 >&2 || true
                 fi
-            done < <(find "${gen_dir}/l6-sdk" -name "*.py" -print0 2>/dev/null)
+            done < <(find "${gen_dir}/sdk" -name "*.py" -print0 2>/dev/null)
         done
     fi
 
-    # ── Check 7: Proto lint ────────────────────────────────────────────────────
-    section "validate: Check 7 — Proto lint"
+    # ── Check 5: Proto lint ────────────────────────────────────────────────────
+    section "validate: Check 5 — Proto lint (gen/proto/)"
     if ! command -v buf &>/dev/null; then
         skip "buf not found"
     else
         for hwip in "${hwips[@]}"; do
-            local proto_dir="${HWIP_ROOT}/${hwip}/gen/l5-proto"
+            local proto_dir="${HWIP_ROOT}/${hwip}/gen/proto"
             if [[ ! -d "$proto_dir" ]]; then
-                skip "${hwip}/gen/l5-proto/ not found"; continue
+                skip "${hwip}/gen/proto/ not found"; continue
             fi
             local CFG='{"version":"v2","lint":{"use":["DEFAULT"],"except":["PACKAGE_VERSION_SUFFIX"]}}'
             if buf lint --config "$CFG" "$proto_dir" 2>/dev/null; then
-                pass "${hwip}/gen/l5-proto/ — lint OK"
+                pass "${hwip}/gen/proto/ — lint OK"
             else
                 local lint_out
                 lint_out="$(buf lint --config "$CFG" "$proto_dir" 2>&1 | head -20)"
                 if [[ -n "$lint_out" ]]; then
-                    fail "${hwip}/gen/l5-proto/ — lint failed"; echo "$lint_out" >&2
+                    fail "${hwip}/gen/proto/ — lint failed"; echo "$lint_out" >&2
                 else
-                    pass "${hwip}/gen/l5-proto/ — lint OK"
+                    pass "${hwip}/gen/proto/ — lint OK"
                 fi
             fi
         done
@@ -534,70 +466,29 @@ cmd_validate() {
 # demo
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_demo() {
-    local stub_mode=false verbose=false
-    local addr=":8080" shm_name="deepspan_accel_0"
-    local BIN_DIR="${HWIP_ROOT}/.demo-bin"
+    local addr="localhost:8080" preset="dev-hwip"
 
-    for arg in "$@"; do
-        case "$arg" in
-            --stub)    stub_mode=true ;;
-            --verbose) verbose=true ;;
-            --addr=*)  addr="${arg#--addr=}" ;;
-            --shm=*)   shm_name="${arg#--shm=}" ;;
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --addr)   addr="$2"; shift 2 ;;
+            --preset) preset="$2"; shift 2 ;;
             -h|--help)
-                echo "Usage: $0 demo [--stub] [--addr ADDR] [--shm NAME] [--verbose]"
+                echo "Usage: $0 demo [--addr ADDR] [--preset PRESET]"
                 exit 0 ;;
-            *) die "Unknown demo option: $arg" ;;
+            *) die "Unknown demo option: $1" ;;
         esac
     done
 
-    local HWSIM_PID="" SERVER_PID=""
-    cleanup_demo() {
-        info "cleanup..."
-        [[ -n "${HWSIM_PID}"  ]] && kill "$HWSIM_PID"  2>/dev/null || true
-        [[ -n "${SERVER_PID}" ]] && kill "$SERVER_PID" 2>/dev/null || true
-        wait 2>/dev/null || true
-    }
-    trap cleanup_demo EXIT
+    section "demo: Python multi-HWIP demo"
+    info "Connecting to deepspan-server at ${addr}"
+    info "(Start server first: build/dev-hwip/server/deepspan-server --hwip-plugin ...)"
 
-    section "demo: build"
-    mkdir -p "$BIN_DIR"
-    cd "${HWIP_ROOT}"
-    $GO build -o "$BIN_DIR/hwsim"       ./demo/cmd/hwsim
-    $GO build -o "$BIN_DIR/demo-server" ./demo/cmd/server
-    $GO build -o "$BIN_DIR/demo-client" ./demo/cmd/client
-    ok "binaries ready → ${BIN_DIR}"
-
-    section "demo: start hwsim + server"
-    if $stub_mode; then
-        warn "stub mode — skipping hwsim"
+    if command -v uv &>/dev/null; then
+        (cd "${DEEPSPAN_ROOT}/sdk" && \
+            uv run python "${HWIP_ROOT}/demo/demo.py" --addr "${addr}")
     else
-        local hwsim_args=("-name" "$shm_name")
-        $verbose && hwsim_args+=("-verbose")
-        info "starting hwsim (shm=/dev/shm/${shm_name})..."
-        "$BIN_DIR/hwsim" "${hwsim_args[@]}" &
-        HWSIM_PID=$!
-        sleep 0.3
-        [[ -e "/dev/shm/$shm_name" ]] \
-            || die "hwsim did not create /dev/shm/${shm_name}"
-        info "hwsim PID=${HWSIM_PID}"
+        python3 "${HWIP_ROOT}/demo/demo.py" --addr "${addr}"
     fi
-
-    local server_args=("-addr" "$addr" "-shm-name" "$shm_name")
-    $stub_mode && server_args+=("-stub")
-    info "starting demo-server (addr=${addr})..."
-    "$BIN_DIR/demo-server" "${server_args[@]}" &
-    SERVER_PID=$!
-    wait_port "$addr"
-    info "demo-server PID=${SERVER_PID}"
-
-    section "demo: run client"
-    local base_url="http://localhost${addr}"
-    [[ "$addr" == :* ]] || base_url="http://$addr"
-    info "demo-client (target=${base_url})..."
-    echo ""
-    "$BIN_DIR/demo-client" -addr "$base_url"
-    echo ""
     ok "demo complete"
 }
 
@@ -605,162 +496,80 @@ cmd_demo() {
 # test
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_test() {
-    local stub_mode=false port=8080
-    local BIN_DIR="${HWIP_ROOT}/.demo-bin"
-    local SHM_NAME="deepspan_accel_0"
+    local preset="dev-hwip" port=8080
 
-    for arg in "$@"; do
-        case "$arg" in
-            --stub)   stub_mode=true ;;
-            --port=*) port="${arg#--port=}" ;;
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --preset) preset="$2"; shift 2 ;;
+            --port)   port="$2"; shift 2 ;;
             -h|--help)
-                echo "Usage: $0 test [--stub] [--port N]"
+                echo "Usage: $0 test [--preset PRESET] [--port N]"
                 exit 0 ;;
-            *) die "Unknown test option: $arg" ;;
+            *) die "Unknown test option: $1" ;;
         esac
     done
 
-    local BASE="http://localhost:${port}"
-    local HWSIM_PID="" SERVER_PID=""
+    section "test: ctest (preset=${preset})"
+    cd "${DEEPSPAN_ROOT}"
+    ctest --preset "${preset}" --output-on-failure -j"$(nproc)"
+    ok "ctest passed"
 
+    section "test: Python smoke test"
+    local SERVER_BIN="${DEEPSPAN_ROOT}/build/${preset}/server/deepspan-server"
+    local ACCEL_SO="${DEEPSPAN_ROOT}/build/${preset}/hwip/accel/plugin/libhwip_accel.so"
+    local SERVER_PID=""
     cleanup_test() {
-        [[ -n "${HWSIM_PID}"  ]] && kill "$HWSIM_PID"  2>/dev/null || true
         [[ -n "${SERVER_PID}" ]] && kill "$SERVER_PID" 2>/dev/null || true
         wait 2>/dev/null || true
     }
     trap cleanup_test EXIT
 
-    rpc() {
-        curl -sf -H "Content-Type: application/json" -d "$2" "${BASE}/$1"
-    }
-
-    section "test: build"
-    mkdir -p "$BIN_DIR"
-    cd "${HWIP_ROOT}"
-    $GO build -o "$BIN_DIR/hwsim"       ./demo/cmd/hwsim
-    $GO build -o "$BIN_DIR/demo-server" ./demo/cmd/server
-    $GO build -o "$BIN_DIR/demo-client" ./demo/cmd/client
-    ok "build complete"
-
-    section "test: start infrastructure"
-    if ! $stub_mode; then
-        "$BIN_DIR/hwsim" -name "$SHM_NAME" &
-        HWSIM_PID=$!
-        sleep 0.3
-        [[ -e "/dev/shm/$SHM_NAME" ]] \
-            || die "hwsim shm not found at /dev/shm/${SHM_NAME}"
+    if [[ ! -f "$SERVER_BIN" ]]; then
+        warn "server binary not found — skipping Python smoke test"
+        return 0
     fi
 
-    local server_args=("-addr" ":${port}" "-shm-name" "$SHM_NAME")
-    $stub_mode && server_args+=("-stub")
-    "$BIN_DIR/demo-server" "${server_args[@]}" >/dev/null 2>&1 &
+    "${SERVER_BIN}" --addr ":${port}" \
+        ${ACCEL_SO:+--hwip-plugin "${ACCEL_SO}"} \
+        >/dev/null 2>&1 &
     SERVER_PID=$!
-    wait_port ":${port}" 12
-    log "server up (port=${port}, stub=${stub_mode})"
+    wait_port "localhost" "${port}" 10
 
     section "test: suite"
 
-    # T1: health
-    log "T1: GET /healthz"
-    local body
-    body="$(curl -sf "${BASE}/healthz")"
-    [[ "$body" == "ok" ]] \
-        && pass "healthz = 'ok'" \
-        || fail "healthz: '${body}'"
-
-    # T2: ListDevices
-    log "T2: HwipService/ListDevices"
-    local resp
-    resp="$(rpc "deepspan.v1.HwipService/ListDevices" '{}')"
-    echo "$resp" | grep -q '"deviceId":"hwip0"' \
-        && pass "ListDevices returns hwip0" \
-        || fail "ListDevices: ${resp}"
-
-    # T3: SubmitRequest (Echo opcode=1)
-    log "T3: HwipService/SubmitRequest (Echo opcode=1)"
-    resp="$(rpc "deepspan.v1.HwipService/SubmitRequest" \
-        '{"deviceId":"hwip0","opcode":1,"payload":"qgAAAAC7AAAA","timeoutMs":1000}')"
-    echo "$resp" | grep -q '"requestId"' \
-        && pass "SubmitRequest/Echo: valid response" \
-        || fail "SubmitRequest/Echo: ${resp}"
-
-    # T4: Accel Echo
-    log "T4: AccelHwipService/Echo"
-    resp="$(rpc "deepspan_accel.v1.AccelHwipService/Echo" \
-        '{"deviceId":"hwip0","arg0":10,"arg1":20,"timeoutMs":1000}')"
-    if $stub_mode; then
-        echo "$resp" | grep -q '"data0":1' \
-            && pass "Echo (stub): data0=opcode(1)" \
-            || fail "Echo (stub): ${resp}"
+    # T1: Python SDK — list_devices returns at least one device
+    log "T1: SDK list_devices"
+    if command -v uv &>/dev/null; then
+        (cd "${DEEPSPAN_ROOT}/sdk" && uv run python3 -c "
+from deepspan import DeepspanClient
+c = DeepspanClient('localhost:${port}')
+devs = c.list_devices()
+assert len(devs) > 0, 'no devices returned'
+print('  devices:', [d.device_id for d in devs])
+c.close()
+") && pass "T1: list_devices returned devices" \
+       || fail "T1: list_devices failed"
     else
-        echo "$resp" | grep -q '"data0":10' && echo "$resp" | grep -q '"data1":20' \
-            && pass "Echo (shm): data0=10 data1=20" \
-            || fail "Echo (shm): ${resp}"
+        skip "T1: uv not found (skipping Python SDK smoke test)"
     fi
 
-    # T5: Accel Process
-    log "T5: AccelHwipService/Process (arg0=100, arg1=42)"
-    resp="$(rpc "deepspan_accel.v1.AccelHwipService/Process" \
-        '{"deviceId":"hwip0","data":"ZAAAACoAAAA=","timeoutMs":1000}')"
-    echo "$resp" | grep -q '"result"' \
-        && pass "Process: got result bytes" \
-        || fail "Process: ${resp}"
-    if ! $stub_mode; then
-        echo "$resp" | grep -q '"result":"jgAAAE4AAAA="' \
-            && pass "Process (shm): sum=142 xor=78" \
-            || fail "Process (shm): result mismatch: ${resp}"
-    fi
-
-    # T6: Accel Status
-    log "T6: AccelHwipService/Status"
-    resp="$(rpc "deepspan_accel.v1.AccelHwipService/Status" \
-        '{"deviceId":"hwip0","timeoutMs":1000}')"
-    if $stub_mode; then
-        echo "$resp" | grep -q '"statusWord":3' \
-            && pass "Status (stub): statusWord=opcode(3)" \
-            || fail "Status (stub): ${resp}"
+    # T2: Python SDK — submit_request to first device
+    log "T2: SDK submit_request (opcode=0x0001)"
+    if command -v uv &>/dev/null; then
+        (cd "${DEEPSPAN_ROOT}/sdk" && uv run python3 -c "
+from deepspan import DeepspanClient
+c = DeepspanClient('localhost:${port}')
+devs = c.list_devices()
+if devs:
+    req_id = c.submit_request(devs[0].device_id, opcode=0x0001)
+    assert req_id, 'empty request_id'
+    print('  request_id:', req_id)
+c.close()
+") && pass "T2: submit_request returned request_id" \
+       || fail "T2: submit_request failed"
     else
-        echo "$resp" | grep -q '"statusWord":65536' \
-            && pass "Status (shm): statusWord=0x00010000" \
-            || fail "Status (shm): ${resp}"
+        skip "T2: uv not found"
     fi
-
-    # T7: AccelHwipService/SubmitRequest (generic dispatch)
-    log "T7: AccelHwipService/SubmitRequest (ACCEL_OP_ECHO=1)"
-    resp="$(rpc "deepspan_accel.v1.AccelHwipService/SubmitRequest" \
-        '{"deviceId":"hwip0","op":"ACCEL_OP_ECHO","payload":"DQAAAB4AAAA=","timeoutMs":1000}')"
-    echo "$resp" | grep -q '"result"' \
-        && pass "AccelHwipService/SubmitRequest: got result" \
-        || fail "AccelHwipService/SubmitRequest: ${resp}"
-
-    # T8: demo-client end-to-end (hwsim mode only)
-    log "T8: demo-client end-to-end"
-    if $stub_mode; then
-        skip "demo-client skipped in stub mode"
-    else
-        if "$BIN_DIR/demo-client" -addr "$BASE" >/tmp/hwip-demo-client.out 2>&1; then
-            local ok_count
-            ok_count="$(grep -c '\[OK\]' /tmp/hwip-demo-client.out || true)"
-            pass "demo-client: ${ok_count} value checks passed"
-        else
-            fail "demo-client failed:"; cat /tmp/hwip-demo-client.out >&2
-        fi
-    fi
-
-    # T9: Concurrent Echo x10
-    log "T9: concurrent Echo x10"
-    local pids=()
-    for i in $(seq 1 10); do
-        rpc "deepspan_accel.v1.AccelHwipService/Echo" \
-            "{\"deviceId\":\"hwip0\",\"arg0\":${i},\"arg1\":$((i*2)),\"timeoutMs\":500}" \
-            >/dev/null &
-        pids+=($!)
-    done
-    local all_ok=true
-    for pid in "${pids[@]}"; do wait "$pid" || all_ok=false; done
-    $all_ok \
-        && pass "10 concurrent Echo calls all 200" \
-        || fail "some concurrent calls failed"
 
     hwip_summary || exit 1
 }
@@ -769,17 +578,29 @@ cmd_test() {
 # check  (full CI gate)
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_check() {
-    section "check: build"
-    cmd_build
+    local preset="dev-hwip"
 
-    section "check: lint"
-    cmd_lint --strict
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --preset) preset="$2"; shift 2 ;;
+            -h|--help)
+                echo "Usage: $0 check [--preset PRESET]"
+                exit 0 ;;
+            *) die "Unknown check option: $1" ;;
+        esac
+    done
+
+    section "check: build"
+    cmd_build --preset "${preset}"
 
     section "check: validate"
     cmd_validate
 
-    section "check: test (stub mode)"
-    cmd_test --stub
+    section "check: lint"
+    cmd_lint
+
+    section "check: test"
+    cmd_test --preset "${preset}"
 
     echo ""
     ok "=== All HWIP checks passed ==="

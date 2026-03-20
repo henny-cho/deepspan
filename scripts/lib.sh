@@ -29,7 +29,7 @@ RESET='\033[0m'   # alias for NC
 
 # ── PATH setup ────────────────────────────────────────────────────────────────
 setup_path() {
-    export PATH="/usr/local/go/bin:${HOME}/go/bin:${HOME}/.local/bin:${HOME}/.cargo/bin:${PATH}"
+    export PATH="/usr/local/bin:${HOME}/.local/bin:${HOME}/.cargo/bin:${PATH}"
 }
 # Backward-compatible aliases
 ds_setup_path()   { setup_path; }
@@ -99,16 +99,6 @@ parse_layers_args() {
         esac
     done
 }
-
-# ── Go workspace modules ──────────────────────────────────────────────────────
-# All Go modules in the workspace (derived from go.work).
-# Used by gate.sh lint and any script that needs to iterate workspace modules.
-DS_GO_MODULES=(
-  l4/mgmt-daemon
-  l4/server
-  hwip/accel/l4-plugin
-  hwip/demo
-)
 
 # ── Port readiness check ──────────────────────────────────────────────────────
 # Usage: wait_port HOST PORT [TIMEOUT_S=30] [HTTP_PATH=/healthz]

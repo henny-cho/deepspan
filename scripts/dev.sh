@@ -32,7 +32,7 @@ shift || true
 # ── Usage ─────────────────────────────────────────────────────────────────────
 usage() {
     cat <<'EOF'
-deepspan developer CLI
+deepspan developer CLI (C++20 platform)
 
 Usage:
   dev.sh <command> [options]
@@ -41,44 +41,40 @@ Lifecycle commands:
   setup     [--layers L1,L2] [--skip L1] [--hooks] [--lint-tools] [--verify-only]
               Install dev toolchains and verify the environment.
               --hooks        Also install git pre-commit hooks
-              --lint-tools   Also install golangci-lint
+              --lint-tools   Also install clang-tidy
               --verify-only  Skip install; only verify existing toolchains
 
-  gen       [--go-only] [--install] [--skip-hwip] [--hwip TYPE] [--check]
-              Generate Go/Python proto stubs and HWIP layer artifacts.
-              --go-only      Skip Python stub generation
-              --install      Install buf CLI and Go/Python plugins first
+  gen       [--skip-hwip] [--hwip TYPE] [--check]
+              Generate HWIP layer artifacts from hwip.yaml.
               --skip-hwip    Skip HWIP codegen stage
               --hwip TYPE    Run HWIP codegen for one type only
               --check        Dry-run: exit 1 if generated files are stale
 
-  build     [--layers L1,L2] [--skip L1]
-              Build every layer and print a pass/fail/time summary.
+  build     [--preset PRESET]
+              Build via CMake (single command: cmake --preset + cmake --build).
+              --preset PRESET  CMake preset (default: dev)
 
-  build clean  [--layers L1,L2] [--skip L1] [--logs] [--all]
-              Remove build artifacts for each layer.
-              --logs   Also remove build/logs/
-              --all    Remove build/logs/ and build/bin/ (full reset)
+  build clean  [--preset PRESET] [--all]
+              Remove CMake build directory.
+              --preset PRESET  CMake preset (default: dev)
+              --all            Remove all build/ subdirectories
 
-  lint      [--module MOD] [--strict]
-              Run golangci-lint on all Go workspace modules.
-              --module MOD   Lint a single module (e.g. l4/server)
-              --strict       Exit 1 on any lint failure (default: warn only)
+  lint      [--strict]
+              Run clang-tidy on all C++ source files.
+              --strict       Exit 1 on any lint warning (default: warn only)
 
-  test      [--no-build] [--hwip [--stub] [--port N]]
-              Full-stack simulation: hw-model → mgmt-daemon → server → SDK hello-world.
+  test      [--no-build] [--preset PRESET]
+              Full-stack simulation: hw-model → server → SDK hello-world.
               --no-build     Skip build; use existing binaries
-              --hwip         Route to HWIP integration tests instead
-              --stub         (hwip) Use stub mode (no hardware)
-              --port N       (hwip) Server port (default: 8080)
+              --preset PRESET  CMake preset (default: dev)
 
   validate  [--hwip TYPE] [--fix] [--skip-syntax]
-              Run 7-check validation on generated HWIP artifacts.
+              Run validation checks on generated HWIP artifacts.
               --hwip TYPE    Validate a single HWIP type
-              --fix          Auto-fix gofmt and stale codegen issues
-              --skip-syntax  Skip C / C++ / Go syntax checks
+              --fix          Auto-fix stale codegen issues
+              --skip-syntax  Skip C / C++ syntax checks
 
-  check     [--layers L1,L2] [--skip L1]
+  check     [--preset PRESET]
               Full CI gate: build → lint → test → validate.
 
   help      Show this help and exit.
@@ -93,8 +89,7 @@ EOF
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_setup() {
     local verify_only=0 install_hooks=0 install_lint=0
-    local GOLANGCI_VERSION="v2.11.3"
-    ALL_LAYERS=(l3/hw-model l2/firmware l2/kernel l3/userlib l3/appframework l4/mgmt-daemon l4/server l6/sdk)
+    ALL_LAYERS=(sim/hw-model firmware kernel runtime/userlib runtime/appframework sdk)
     LAYERS=("${ALL_LAYERS[@]}")
     SKIP_LAYERS=()
 
@@ -103,7 +98,7 @@ cmd_setup() {
             --layers)      IFS=',' read -ra LAYERS <<< "$2"; shift 2 ;;
             --skip)        IFS=',' read -ra SKIP_LAYERS <<< "$2"; shift 2 ;;
             --hooks)       install_hooks=1; shift ;;
-            --lint-tools)  install_lint=1; shift ;;
+            --lint-tools)  install_lint=1;  shift ;;
             --verify-only) verify_only=1; shift ;;
             -h|--help)
                 echo "Usage: $0 setup [--layers L1,L2] [--skip L1] [--hooks] [--lint-tools] [--verify-only]"
@@ -137,7 +132,7 @@ cmd_setup() {
         done
 
         # West workspace init (after firmware tools are ready)
-        if [[ " ${LAYERS[*]} " == *"l2/firmware"* ]] && ! should_skip l2/firmware; then
+        if [[ " ${LAYERS[*]} " == *"firmware"* ]] && ! should_skip firmware; then
             section "setup: west workspace"
             cd "${DEEPSPAN_ROOT}"
             if [[ ! -d .west ]]; then
@@ -170,19 +165,15 @@ cmd_setup() {
         ok "git hooks installed from .githooks/"
     fi
 
-    # ── Optional: golangci-lint ────────────────────────────────────────────────
+    # ── Optional: clang-tidy ───────────────────────────────────────────────────
     if [[ $install_lint -eq 1 ]]; then
-        section "setup: golangci-lint"
-        if command -v golangci-lint &>/dev/null; then
-            ok "golangci-lint already installed: $(golangci-lint version 2>&1 | head -1)"
+        section "setup: clang-tidy"
+        if command -v clang-tidy &>/dev/null; then
+            ok "clang-tidy already installed: $(clang-tidy --version | head -1)"
         else
-            log "Installing golangci-lint ${GOLANGCI_VERSION}..."
-            local GOBIN
-            GOBIN="$(go env GOPATH)/bin"
-            curl -sSfL \
-                https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
-                | sh -s -- -b "$GOBIN" "${GOLANGCI_VERSION}"
-            ok "golangci-lint installed: $("$GOBIN/golangci-lint" version 2>&1 | head -1)"
+            log "Installing clang-tidy..."
+            sudo apt-get install -y --no-install-recommends clang-tidy
+            ok "clang-tidy installed: $(clang-tidy --version | head -1)"
         fi
     fi
 
@@ -245,102 +236,21 @@ cmd_setup() {
 # gen
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_gen() {
-    local go_only=false do_install=false skip_hwip=false
-    local hwip_filter="" check_mode=false
-    local PROTO_DIR="${DEEPSPAN_ROOT}/l5/proto"
-    local GEN_GO_DIR="${DEEPSPAN_ROOT}/l5/gen/go"
-    local GEN_PY_DIR="${DEEPSPAN_ROOT}/l5/gen/python"
+    local skip_hwip=false hwip_filter="" check_mode=false
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --go-only)   go_only=true; shift ;;
-            --install)   do_install=true; shift ;;
             --skip-hwip) skip_hwip=true; shift ;;
             --hwip)      hwip_filter="$2"; shift 2 ;;
             --check)     check_mode=true; shift ;;
             -h|--help)
-                echo "Usage: $0 gen [--go-only] [--install] [--skip-hwip] [--hwip TYPE] [--check]"
+                echo "Usage: $0 gen [--skip-hwip] [--hwip TYPE] [--check]"
                 exit 0 ;;
             *) die "Unknown gen option: $1" ;;
         esac
     done
 
-    # ── Optional: install tools ────────────────────────────────────────────────
-    if $do_install; then
-        section "gen: install tools"
-        if ! command -v buf &>/dev/null; then
-            local BUF_VERSION="1.34.0"
-            log "Installing buf ${BUF_VERSION}..."
-            sudo wget -q -O /usr/local/bin/buf \
-                "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64"
-            sudo chmod +x /usr/local/bin/buf
-            ok "buf installed"
-        else
-            ok "buf: $(buf --version) (already installed)"
-        fi
-        log "Installing Go proto plugins..."
-        go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
-        go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.16.2
-        log "Installing Python proto plugin..."
-        pipx install grpcio-tools 2>/dev/null \
-            || pip3 install --break-system-packages grpcio-tools mypy-protobuf
-    fi
-
-    # ── Pre-flight ─────────────────────────────────────────────────────────────
-    if ! command -v buf &>/dev/null; then
-        die "buf not found — run: ./scripts/dev.sh gen --install"
-    fi
-    section "gen: platform proto (buf $(buf --version))"
-
-    # ── Stage 1: platform proto → Go + Python stubs ───────────────────────────
-    mkdir -p "${GEN_GO_DIR}"
-    $go_only || mkdir -p "${GEN_PY_DIR}"
-
-    cd "${PROTO_DIR}"
-    if $go_only; then
-        local TMP_GEN
-        TMP_GEN="$(mktemp --suffix=.yaml)"
-        trap 'rm -f "$TMP_GEN"' EXIT
-        cat > "$TMP_GEN" <<'YAML'
-version: v2
-managed:
-  enabled: true
-  override:
-    - file_option: go_package_prefix
-      value: github.com/myorg/deepspan/l5/gen
-plugins:
-  - remote: buf.build/protocolbuffers/go
-    out: ../gen/go
-    opt:
-      - paths=source_relative
-  - remote: buf.build/connectrpc/go
-    out: ../gen/go
-    opt:
-      - paths=source_relative
-YAML
-        log "Generating Go stubs..."
-        buf generate --template "$TMP_GEN"
-    else
-        log "Generating Go + Python stubs..."
-        buf generate
-    fi
-
-    log "go mod tidy: l5/gen/go..."
-    (cd "${GEN_GO_DIR}" && go mod tidy)
-    log "go mod tidy: l4/server..."
-    (cd "${DEEPSPAN_ROOT}/l4/server" && go mod tidy)
-    log "go mod tidy: l4/mgmt-daemon..."
-    (cd "${DEEPSPAN_ROOT}/l4/mgmt-daemon" && go mod tidy)
-
-    if ! $go_only && [[ -d "${GEN_PY_DIR}" ]]; then
-        log "Ensuring Python __init__.py files..."
-        find "${GEN_PY_DIR}" -type d | while read -r d; do
-            touch "${d}/__init__.py"
-        done
-    fi
-    ok "platform proto generation complete"
-
-    # ── Stage 2: HWIP codegen ─────────────────────────────────────────────────
+    # ── HWIP codegen (deepspan-codegen → gen/{kernel,firmware,sim,rpc,proto,sdk}/) ──
     if $skip_hwip; then
         log "Skipping HWIP codegen (--skip-hwip)"
         return 0
@@ -348,7 +258,7 @@ YAML
 
     section "gen: HWIP codegen"
     if ! command -v deepspan-codegen &>/dev/null; then
-        die "deepspan-codegen not found — run: pip install tools/deepspan-codegen/"
+        die "deepspan-codegen not found — run: uv tool install codegen/"
     fi
 
     _run_hwip_codegen() {
@@ -359,11 +269,10 @@ YAML
             local TMP_GEN
             TMP_GEN="$(mktemp -d)"
             trap 'rm -rf "$TMP_GEN"' EXIT
-            deepspan-codegen \
-                --descriptor "${hwip_dir}/hwip.yaml" \
+            deepspan-codegen --descriptor "${hwip_dir}/hwip.yaml" \
                 --out "$TMP_GEN" --target all
             local stale=false
-            for layer_dir in "$TMP_GEN"/l*; do
+            for layer_dir in "$TMP_GEN"/*/; do
                 local layer
                 layer="$(basename "$layer_dir")"
                 if ! diff -rq \
@@ -378,15 +287,9 @@ YAML
             fi
             ok "${hwip_type}/gen/ is up-to-date"
         else
-            log "[Stage 1] ${hwip_type}: deepspan-codegen..."
-            deepspan-codegen \
-                --descriptor "${hwip_dir}/hwip.yaml" \
+            log "${hwip_type}: deepspan-codegen..."
+            deepspan-codegen --descriptor "${hwip_dir}/hwip.yaml" \
                 --out "${hwip_dir}/gen" --target all
-            log "[Stage 2] ${hwip_type}: buf generate..."
-            (cd "${DEEPSPAN_ROOT}/hwip" && buf generate \
-                --config "${DEEPSPAN_ROOT}/hwip/buf.yaml" \
-                --template "${DEEPSPAN_ROOT}/hwip/buf.gen.yaml")
-            go mod tidy -C "${hwip_dir}/gen/go"
             ok "${hwip_type} codegen complete"
         fi
     }
@@ -403,10 +306,9 @@ YAML
     if ! $check_mode; then
         echo ""
         ok "Codegen complete."
-        echo "  Go stubs:     ${GEN_GO_DIR}"
-        $go_only || echo "  Python stubs: ${GEN_PY_DIR}"
+        echo "  Generated:  hwip/*/gen/{kernel,firmware,sim,rpc,proto,sdk}/"
         echo ""
-        echo "Next: git add l5/gen/ hwip/*/gen/ && git commit -m 'chore: regenerate proto stubs'"
+        echo "Next: git add hwip/*/gen/ && git commit -m 'chore: regenerate HWIP artifacts'"
     fi
 }
 
@@ -414,131 +316,34 @@ YAML
 # build clean
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_build_clean() {
-    ALL_LAYERS=(l3/hw-model l2/kernel l3/userlib l3/appframework l2/firmware l4/mgmt-daemon l4/server l6/sdk)
-    LAYERS=("${ALL_LAYERS[@]}")
-    SKIP_LAYERS=()
-    local clean_logs=0 clean_all=0
+    local preset="dev" clean_all=0
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --layers) IFS=',' read -ra LAYERS <<< "$2"; shift 2 ;;
-            --skip)   IFS=',' read -ra SKIP_LAYERS <<< "$2"; shift 2 ;;
-            --logs)   clean_logs=1; shift ;;
+            --preset) preset="$2"; shift 2 ;;
             --all)    clean_all=1; shift ;;
             -h|--help)
-                echo "Usage: $0 build clean [--layers L1,L2] [--skip L1] [--logs] [--all]"
-                echo ""
-                echo "  --layers L1,L2  Clean only the specified layers"
-                echo "  --skip L1       Skip specific layers"
-                echo "  --logs          Also remove build/logs/"
-                echo "  --all           Remove build/logs/ and build/bin/ (full reset)"
+                echo "Usage: $0 build clean [--preset PRESET] [--all]"
                 exit 0 ;;
             *) die "Unknown clean option: $1" ;;
         esac
     done
 
-    declare -A RESULTS=()
-
-    for layer in "${LAYERS[@]}"; do
-        if should_skip "$layer"; then
-            RESULTS[$layer]="SKIP"; continue
-        fi
-        section "clean: $layer"
-        case "$layer" in
-            l3/hw-model|l3/userlib|l3/appframework)
-                local build_dir="${DEEPSPAN_ROOT}/${layer}/build"
-                if [[ -d "$build_dir" ]]; then
-                    rm -rf "$build_dir"
-                    ok "$layer: removed $(basename "$build_dir")/"
-                else
-                    log "$layer: nothing to clean"
-                fi
-                RESULTS[$layer]="OK"
-                ;;
-            l2/kernel)
-                local driver_dir="${DEEPSPAN_ROOT}/l2/kernel/drivers/deepspan"
-                local kver kbuild
-                kver="$(uname -r)"
-                kbuild="/lib/modules/${kver}/build"
-                if [[ -d "$kbuild" ]]; then
-                    make -C "$kbuild" M="$driver_dir" clean 2>/dev/null \
-                        && ok "l2/kernel: make clean done" \
-                        || warn "l2/kernel: make clean returned non-zero"
-                else
-                    warn "l2/kernel: kbuild not found (${kbuild}), removing artifacts manually"
-                    find "$driver_dir" \
-                        \( -name "*.ko" -o -name "*.o" -o -name "*.mod" \
-                           -o -name "*.mod.c" -o -name "modules.order" \
-                           -o -name "Module.symvers" -o -name "*.cmd" \) \
-                        -delete 2>/dev/null || true
-                    ok "l2/kernel: artifacts removed"
-                fi
-                RESULTS[$layer]="OK"
-                ;;
-            l2/firmware)
-                local fw_build="${DEEPSPAN_ROOT}/build/firmware"
-                if [[ -d "$fw_build" ]]; then
-                    rm -rf "$fw_build"
-                    ok "l2/firmware: removed build/firmware/"
-                else
-                    log "l2/firmware: nothing to clean"
-                fi
-                RESULTS[$layer]="OK"
-                ;;
-            l4/mgmt-daemon|l4/server)
-                (cd "${DEEPSPAN_ROOT}/${layer}" && go clean ./...)
-                ok "$layer: go clean done"
-                RESULTS[$layer]="OK"
-                ;;
-            l6/sdk)
-                local sdk_venv="${DEEPSPAN_ROOT}/l6/sdk/.venv"
-                if [[ -d "$sdk_venv" ]]; then
-                    rm -rf "$sdk_venv"
-                    ok "l6/sdk: removed .venv/"
-                fi
-                find "${DEEPSPAN_ROOT}/l6/sdk" -type d -name "__pycache__" \
-                    -exec rm -rf {} + 2>/dev/null || true
-                find "${DEEPSPAN_ROOT}/l6/sdk" -name "*.pyc" -delete 2>/dev/null || true
-                ok "l6/sdk: removed __pycache__ and *.pyc"
-                RESULTS[$layer]="OK"
-                ;;
-            *)
-                warn "No clean action defined for layer: $layer"
-                RESULTS[$layer]="SKIP"
-                ;;
-        esac
-    done
-
-    if [[ $clean_logs -eq 1 || $clean_all -eq 1 ]]; then
-        section "clean: build/logs"
-        rm -rf "${DEEPSPAN_ROOT}/build/logs"
-        ok "build/logs/ removed"
-    fi
-
     if [[ $clean_all -eq 1 ]]; then
-        section "clean: build/bin"
-        rm -rf "${DEEPSPAN_ROOT}/build/bin"
-        ok "build/bin/ removed"
+        section "clean: all build/ directories"
+        rm -rf "${DEEPSPAN_ROOT}/build"
+        ok "build/ removed"
+    else
+        local build_dir="${DEEPSPAN_ROOT}/build/${preset}"
+        section "clean: build/${preset}"
+        if [[ -d "$build_dir" ]]; then
+            rm -rf "$build_dir"
+            ok "build/${preset}/ removed"
+        else
+            log "nothing to clean (build/${preset}/ not found)"
+        fi
     fi
 
-    echo ""
-    echo -e "${BOLD}┌──────────────────────────────────────┐${NC}"
-    echo -e "${BOLD}│  Clean summary                       │${NC}"
-    echo -e "${BOLD}├──────────────────────┬───────────────┤${NC}"
-    printf "${BOLD}│ %-20s │ %-13s │${NC}\n" "Layer" "Result"
-    echo -e "${BOLD}├──────────────────────┼───────────────┤${NC}"
-    for layer in "${LAYERS[@]}"; do
-        local result="${RESULTS[$layer]:-SKIP}"
-        local colour
-        case "$result" in
-            OK)   colour="${GREEN}" ;;
-            SKIP) colour="${YELLOW}" ;;
-            *)    colour="${NC}" ;;
-        esac
-        printf "│ %-20s │ ${colour}%-13s${NC} │\n" "$layer" "$result"
-    done
-    echo -e "${BOLD}└──────────────────────┴───────────────┘${NC}"
-    echo ""
     ok "clean complete"
 }
 
@@ -552,129 +357,73 @@ cmd_build() {
         cmd_build_clean "$@"
         return
     fi
-    declare -A LAYER_SCRIPT=(
-        [l3/hw-model]="l3/hw-model/scripts/build.sh"
-        [l3/userlib]="l3/userlib/scripts/build.sh"
-        [l3/appframework]="l3/appframework/scripts/build.sh"
-        [l2/kernel]="l2/kernel/scripts/build.sh"
-        [l2/firmware]="l2/firmware/scripts/build.sh"
-        [l4/mgmt-daemon]="l4/mgmt-daemon/scripts/build.sh"
-        [l4/server]="l4/server/scripts/build.sh"
-        [l6/sdk]="l6/sdk/scripts/build.sh"
-    )
-    ALL_LAYERS=(l3/hw-model l2/kernel l3/userlib l3/appframework l2/firmware l4/mgmt-daemon l4/server l6/sdk)
-    LAYERS=("${ALL_LAYERS[@]}")
-    SKIP_LAYERS=()
-    parse_layers_args "$@"
 
-    declare -A RESULTS=()
-    declare -A DURATIONS=()
-
-    for layer in "${LAYERS[@]}"; do
-        local script="${DEEPSPAN_ROOT}/${LAYER_SCRIPT[$layer]}"
-        if should_skip "$layer"; then
-            RESULTS[$layer]="SKIP"; continue
-        fi
-        if [[ ! -f "$script" ]]; then
-            echo -e "${RED}[${layer}] build script not found${NC}"
-            RESULTS[$layer]="FAIL"; continue
-        fi
-        local log_file="${DEEPSPAN_ROOT}/build/logs/${layer//\//-}-build.log"
-        mkdir -p "$(dirname "$log_file")"
-        section "build: $layer"
-        local t_start t_end
-        t_start=$(date +%s)
-        if bash "$script" 2>&1 | tee "$log_file"; then
-            t_end=$(date +%s)
-            RESULTS[$layer]="PASS"
-            DURATIONS[$layer]="$((t_end - t_start))s"
-        else
-            t_end=$(date +%s)
-            RESULTS[$layer]="FAIL"
-            DURATIONS[$layer]="$((t_end - t_start))s"
-            echo -e "${RED}[${layer}] FAILED — see ${log_file}${NC}"
-        fi
-    done
-
-    echo ""
-    echo -e "${BOLD}┌──────────────────────────────────────┐${NC}"
-    echo -e "${BOLD}│  Build summary                       │${NC}"
-    echo -e "${BOLD}├──────────────────────┬───────┬───────┤${NC}"
-    printf "${BOLD}│ %-20s │ %-5s │ %-5s │${NC}\n" "Layer" "Result" "Time"
-    echo -e "${BOLD}├──────────────────────┼───────┼───────┤${NC}"
-    local FAIL_COUNT=0
-    for layer in "${LAYERS[@]}"; do
-        local result="${RESULTS[$layer]:-SKIP}"
-        local duration="${DURATIONS[$layer]:--}"
-        local colour
-        case "$result" in
-            PASS) colour="${GREEN}" ;;
-            FAIL) colour="${RED}";  ((FAIL_COUNT++)) || true ;;
-            SKIP) colour="${YELLOW}" ;;
-            *)    colour="${NC}" ;;
+    local preset="dev"
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --preset) preset="$2"; shift 2 ;;
+            -h|--help)
+                echo "Usage: $0 build [--preset PRESET]"
+                exit 0 ;;
+            *) die "Unknown build option: $1" ;;
         esac
-        printf "│ %-20s │ ${colour}%-5s${NC} │ %-5s │\n" "$layer" "$result" "$duration"
     done
-    echo -e "${BOLD}└──────────────────────┴───────┴───────┘${NC}"
-    echo ""
 
-    if [[ $FAIL_COUNT -gt 0 ]]; then
-        echo -e "${RED}${BOLD}${FAIL_COUNT} layer(s) failed. Fix errors before committing.${NC}"
-        exit 1
-    fi
-    ok "all layers passed"
+    section "build: cmake --preset ${preset}"
+    cd "${DEEPSPAN_ROOT}"
+    local t_start t_end
+    t_start=$(date +%s)
+    cmake --preset "${preset}"
+    cmake --build "build/${preset}" -j"$(nproc)"
+    t_end=$(date +%s)
+    ok "build complete in $((t_end - t_start))s (preset=${preset})"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
 # lint
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_lint() {
-    local module="" strict=0
+    local strict=0 preset="dev"
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --module) module="$2"; shift 2 ;;
             --strict) strict=1; shift ;;
+            --preset) preset="$2"; shift 2 ;;
             -h|--help)
-                echo "Usage: $0 lint [--module MOD] [--strict]"
+                echo "Usage: $0 lint [--strict] [--preset PRESET]"
                 exit 0 ;;
             *) die "Unknown lint option: $1" ;;
         esac
     done
 
-    if ! command -v golangci-lint &>/dev/null; then
-        warn "golangci-lint not found — installing via go install..."
-        go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+    if ! command -v clang-tidy &>/dev/null; then
+        die "clang-tidy not found — run: ./scripts/dev.sh setup --lint-tools"
     fi
 
-    local modules=()
-    if [[ -n "$module" ]]; then
-        modules=("$module")
-    else
-        modules=("${DS_GO_MODULES[@]}")
+    local compile_db="${DEEPSPAN_ROOT}/build/${preset}/compile_commands.json"
+    if [[ ! -f "$compile_db" ]]; then
+        die "compile_commands.json not found — run: ./scripts/dev.sh build --preset ${preset}"
     fi
 
+    section "lint: clang-tidy (preset=${preset})"
     local fail_count=0
-    for mod in "${modules[@]}"; do
-        local mod_path="${DEEPSPAN_ROOT}/${mod}"
-        [[ -d "$mod_path" ]] || { warn "module not found: $mod_path"; continue; }
-        section "lint: $mod"
-        if (cd "$mod_path" && golangci-lint run --timeout 5m ./...); then
-            ok "$mod — passed"
-        else
+    while IFS= read -r -d '' src; do
+        local rel="${src#"${DEEPSPAN_ROOT}"/}"
+        if ! clang-tidy -p "${compile_db}" "${src}" --quiet 2>/dev/null; then
             fail_count=$((fail_count + 1))
-            warn "$mod — failed"
+            warn "${rel} — clang-tidy issues found"
         fi
-    done
+    done < <(find "${DEEPSPAN_ROOT}/server" "${DEEPSPAN_ROOT}/runtime" "${DEEPSPAN_ROOT}/sim" \
+                  -name "*.cpp" -o -name "*.hpp" -print0 2>/dev/null)
 
     if [[ $fail_count -gt 0 ]]; then
         if [[ $strict -eq 1 ]]; then
-            die "$fail_count module(s) failed lint"
+            die "${fail_count} file(s) failed clang-tidy"
         else
-            warn "$fail_count module(s) failed lint (use --strict to exit 1)"
+            warn "${fail_count} file(s) had clang-tidy issues (use --strict to exit 1)"
         fi
     else
-        ok "all modules passed lint"
+        ok "all C++ files passed clang-tidy"
     fi
 }
 
@@ -682,28 +431,20 @@ cmd_lint() {
 # test
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_test() {
-    # Route to HWIP integration tests if --hwip flag is present
-    if [[ "${1:-}" == "--hwip" ]]; then
-        shift
-        log "test: routing to hwip integration tests"
-        exec "${SCRIPT_DIR}/../hwip/scripts/hwip.sh" test "$@"
-    fi
-
-    local no_build=0
+    local no_build=0 preset="dev"
     local SERVER_ADDR="${SERVER_ADDR:-:8080}"
-    local MGMT_ADDR="${MGMT_ADDR:-:8081}"
     local HW_MODEL_SHM="${HW_MODEL_SHM:-deepspan-sim}"
     local STARTUP_TIMEOUT=15
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --no-build) no_build=1; shift ;;
+            --preset)   preset="$2"; shift 2 ;;
             -h|--help)
-                echo "Usage: $0 test [--no-build] [--hwip [--stub] [--port N]]"
+                echo "Usage: $0 test [--no-build] [--preset PRESET]"
                 echo ""
                 echo "Environment overrides:"
                 echo "  SERVER_ADDR   server listen address  (default: :8080)"
-                echo "  MGMT_ADDR     mgmt-daemon address    (default: :8081)"
                 echo "  HW_MODEL_SHM  POSIX shm name         (default: deepspan-sim)"
                 exit 0 ;;
             *) die "Unknown test option: $1" ;;
@@ -720,45 +461,28 @@ cmd_test() {
     }
     trap cleanup_test EXIT INT TERM
 
-    local BIN_DIR="${DEEPSPAN_ROOT}/build/bin"
-    local HW_MODEL_BIN="${DEEPSPAN_ROOT}/l3/hw-model/build/deepspan-hw-model"
-    local FW_SIM_BIN="${DEEPSPAN_ROOT}/l3/hw-model/build/deepspan-firmware-sim"
-    local MGMT_BIN="${BIN_DIR}/mgmt-daemon"
-    local SERVER_BIN="${BIN_DIR}/deepspan-accel-server"
-    local ZEPHYR_BIN="${DEEPSPAN_ROOT}/build/l2/firmware/app/zephyr/zephyr.exe"
+    local BUILD_DIR="${DEEPSPAN_ROOT}/build/${preset}"
+    local HW_MODEL_BIN="${BUILD_DIR}/sim/hw-model/deepspan-hw-model"
+    local SERVER_BIN="${BUILD_DIR}/server/deepspan-server"
+    local ZEPHYR_BIN="${DEEPSPAN_ROOT}/build/firmware/app/zephyr/zephyr.exe"
 
     if [[ $no_build -eq 0 ]]; then
-        mkdir -p "${BIN_DIR}"
-        if command -v cmake &>/dev/null && command -v ninja &>/dev/null; then
-            section "test: build hw-model"
-            cmake -S "${DEEPSPAN_ROOT}/l3/hw-model" \
-                  -B "${DEEPSPAN_ROOT}/l3/hw-model/build" \
-                  -G Ninja -DCMAKE_BUILD_TYPE=Release \
-                  -DDEEPSPAN_BUILD_TESTS=OFF >/dev/null
-            cmake --build "${DEEPSPAN_ROOT}/l3/hw-model/build" -j"$(nproc)" >/dev/null
-            ok "hw-model built"
-        else
-            warn "cmake/ninja not found — skipping hw-model build"
-        fi
-        section "test: build Go services"
-        command -v go &>/dev/null || die "go not found — cannot build services"
-        (cd "${DEEPSPAN_ROOT}/l4/mgmt-daemon" && \
-            go build -o "${MGMT_BIN}" ./cmd/mgmt-daemon/)
-        (cd "${DEEPSPAN_ROOT}/hwip/demo" && \
-            go build -o "${SERVER_BIN}" ./cmd/server/)
-        ok "Go services built"
+        section "test: cmake build (preset=${preset})"
+        cd "${DEEPSPAN_ROOT}"
+        cmake --preset "${preset}"
+        cmake --build "${BUILD_DIR}" -j"$(nproc)"
+        ok "build complete"
     fi
 
-    [[ -f "${MGMT_BIN}"   ]] || die "mgmt-daemon binary not found: ${MGMT_BIN}"
     [[ -f "${SERVER_BIN}" ]] || die "server binary not found: ${SERVER_BIN}"
 
-    mkdir -p "${DEEPSPAN_ROOT}/build/logs"
+    mkdir -p "${BUILD_DIR}/logs"
     section "test: start simulation stack"
 
     if [[ -f "${HW_MODEL_BIN}" ]]; then
         log "starting hw-model (shm: ${HW_MODEL_SHM})..."
         "${HW_MODEL_BIN}" "--shm-name=/${HW_MODEL_SHM}" \
-            >"${DEEPSPAN_ROOT}/build/logs/hw-model.log" 2>&1 &
+            >"${BUILD_DIR}/logs/hw-model.log" 2>&1 &
         PIDS+=($!)
         sleep 0.3
         ok "hw-model started (pid ${PIDS[-1]})"
@@ -766,79 +490,35 @@ cmd_test() {
         warn "hw-model binary not found — skipping"
     fi
 
-    if [[ -f "${FW_SIM_BIN}" ]]; then
-        log "starting firmware_sim (shm: ${HW_MODEL_SHM})..."
-        "${FW_SIM_BIN}" "--shm-name=/${HW_MODEL_SHM}" --interval-ms=1000 \
-            >"${DEEPSPAN_ROOT}/build/logs/firmware-sim.log" 2>&1 &
-        PIDS+=($!)
-        sleep 0.2
-        ok "firmware_sim started (pid ${PIDS[-1]})"
-    fi
-
     if [[ -f "${ZEPHYR_BIN}" ]]; then
         log "starting Zephyr native_sim firmware..."
-        "${ZEPHYR_BIN}" \
-            >"${DEEPSPAN_ROOT}/build/logs/zephyr.log" 2>&1 &
+        "${ZEPHYR_BIN}" >"${BUILD_DIR}/logs/zephyr.log" 2>&1 &
         PIDS+=($!)
         sleep 0.3
         ok "Zephyr firmware started (pid ${PIDS[-1]})"
     fi
 
-    log "starting mgmt-daemon (addr ${MGMT_ADDR}, sim mode)..."
-    "${MGMT_BIN}" --addr "${MGMT_ADDR}" --sim \
-        >"${DEEPSPAN_ROOT}/build/logs/mgmt-daemon.log" 2>&1 &
+    log "starting deepspan-server (addr ${SERVER_ADDR})..."
+    "${SERVER_BIN}" --addr "${SERVER_ADDR}" \
+        >"${BUILD_DIR}/logs/server.log" 2>&1 &
     PIDS+=($!)
-    sleep 0.3
-    ok "mgmt-daemon started (pid ${PIDS[-1]})"
-
-    log "starting server (addr ${SERVER_ADDR})..."
-    "${SERVER_BIN}" --addr "${SERVER_ADDR}" --shm-name "${HW_MODEL_SHM}" \
-        >"${DEEPSPAN_ROOT}/build/logs/server.log" 2>&1 &
-    PIDS+=($!)
-    ok "server started (pid ${PIDS[-1]})"
+    ok "deepspan-server started (pid ${PIDS[-1]})"
 
     local SERVER_PORT="${SERVER_ADDR#:}"
-    log "waiting for server (port ${SERVER_PORT})..."
-    local deadline=$((SECONDS + STARTUP_TIMEOUT))
-    while [[ $SECONDS -lt $deadline ]]; do
-        if curl -sf "http://localhost:${SERVER_PORT}/healthz" >/dev/null 2>&1; then
-            ok "server is ready"
-            break
-        fi
-        sleep 0.5
-    done
-    if [[ $SECONDS -ge $deadline ]]; then
-        echo "--- server log ---"
-        cat "${DEEPSPAN_ROOT}/build/logs/server.log" || true
-        die "server did not become ready within ${STARTUP_TIMEOUT}s"
-    fi
+    wait_port "localhost" "${SERVER_PORT}" "${STARTUP_TIMEOUT}"
 
     section "test: SDK hello-world"
-    export DEEPSPAN_URL="http://localhost:${SERVER_PORT}"
-    local HELLO_SCRIPT="${DEEPSPAN_ROOT}/l6/sdk/examples/hello.py"
-    local VENV_PYTHON="${DEEPSPAN_ROOT}/.venv/bin/python"
-
-    if [[ -x "${VENV_PYTHON}" ]]; then
-        "${VENV_PYTHON}" "${HELLO_SCRIPT}"
-    elif command -v uv &>/dev/null; then
-        (cd "${DEEPSPAN_ROOT}/l6/sdk" && uv run python "${HELLO_SCRIPT}")
-    elif command -v python3 &>/dev/null; then
-        python3 "${HELLO_SCRIPT}"
+    local HELLO_SCRIPT="${DEEPSPAN_ROOT}/sdk/examples/hello.py"
+    if command -v uv &>/dev/null; then
+        (cd "${DEEPSPAN_ROOT}/sdk" && uv run python "${HELLO_SCRIPT}")
     else
-        die "python not found (tried .venv, uv, python3)"
+        python3 "${HELLO_SCRIPT}"
     fi
 
     echo ""
     ok "=== Full-stack simulation test PASSED ==="
     echo ""
-    echo -e "  ${BOLD}Processes running:${NC}"
-    for pid in "${PIDS[@]}"; do
-        local name
-        name=$(ps -p "$pid" -o comm= 2>/dev/null || echo "(exited)")
-        echo "    pid ${pid}: ${name}"
-    done
-    echo ""
-    echo -e "  ${BOLD}Logs:${NC} ${DEEPSPAN_ROOT}/build/logs/"
+    echo -e "  ${BOLD}Logs:${NC} ${BUILD_DIR}/logs/"
     echo ""
     echo "  Press Ctrl-C to stop all services."
     wait
@@ -856,25 +536,25 @@ cmd_validate() {
 # check  (full CI gate)
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_check() {
-    local LAYER_ARGS=()
+    local preset="dev"
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --layers|--skip) LAYER_ARGS+=("$1" "$2"); shift 2 ;;
+            --preset) preset="$2"; shift 2 ;;
             -h|--help)
-                echo "Usage: $0 check [--layers L1,L2] [--skip L1]"
+                echo "Usage: $0 check [--preset PRESET]"
                 exit 0 ;;
             *) die "Unknown check option: $1" ;;
         esac
     done
 
     section "check: build"
-    cmd_build "${LAYER_ARGS[@]}"
+    cmd_build --preset "${preset}"
+
+    section "check: ctest"
+    ctest --preset "${preset}" --output-on-failure
 
     section "check: lint"
-    cmd_lint --strict
-
-    section "check: test"
-    cmd_test --no-build
+    cmd_lint --strict --preset "${preset}"
 
     section "check: validate"
     cmd_validate
