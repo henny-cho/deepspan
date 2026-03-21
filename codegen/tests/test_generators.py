@@ -350,3 +350,25 @@ class TestPythonSdkGenerator:
         import ast
         c = _gen(PythonSdkGenerator, full_desc, tmp_path)
         ast.parse(c)  # raises SyntaxError if invalid
+
+    def test_echo_decode_uses_struct_unpack(self, full_desc, tmp_path):
+        """echo() must decode data0/data1 from response bytes via struct.unpack_from."""
+        c = _gen(PythonSdkGenerator, full_desc, tmp_path)
+        assert "struct.unpack_from" in c
+        assert 'data0=struct.unpack_from("<I", _d, 0)' in c
+        assert 'data1=struct.unpack_from("<I", _d, 4)' in c
+
+    def test_status_decode_uses_struct_unpack(self, full_desc, tmp_path):
+        """status() must decode status_word from result_data0 (offset 0)."""
+        c = _gen(PythonSdkGenerator, full_desc, tmp_path)
+        assert 'status_word=struct.unpack_from("<I", _d, 0)' in c
+
+    def test_process_decode_returns_raw_bytes(self, full_desc, tmp_path):
+        """process() must return raw bytes as the result field."""
+        c = _gen(PythonSdkGenerator, full_desc, tmp_path)
+        assert "result=_d" in c
+
+    def test_no_decode_todo(self, full_desc, tmp_path):
+        """Generated code must not contain TODO decode stubs."""
+        c = _gen(PythonSdkGenerator, full_desc, tmp_path)
+        assert "# TODO: decode" not in c

@@ -83,14 +83,14 @@ def test_list_devices_empty(mock_stubs):
     assert devices == []
 
 
-def test_submit_request_returns_request_id(mock_stubs):
+def test_submit_request_returns_result_bytes(mock_stubs):
     client, hwip_stub, *_ = mock_stubs
     resp = MagicMock()
-    resp.request_id = 42
+    resp.result = b"\xef\xbe\xad\xde\xbe\xba\xfe\xca"
     hwip_stub.SubmitRequest.return_value = resp
 
-    req_id = client.submit_request("accel/0", opcode=0x0001)
-    assert req_id == "42"
+    raw = client.submit_request("accel/0", opcode=0x0001)
+    assert raw == b"\xef\xbe\xad\xde\xbe\xba\xfe\xca"
 
 
 def test_get_device_status(mock_stubs):

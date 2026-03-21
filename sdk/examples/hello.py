@@ -5,7 +5,7 @@ Deepspan full-stack E2E smoke test (gRPC).
 
 Flow:
   1. list_devices()         → expects accel/0 in READY state
-  2. submit_request()       → ECHO opcode, verifies arg0/arg1 round-trip
+  2. submit_request()       → ECHO opcode, decodes and verifies arg0/arg1 round-trip
   3. get_firmware_info()    → shows version (sim: reads SHM)
   4. get_telemetry()        → shows uptime_ms and irq_count from SHM stats
 
@@ -69,12 +69,18 @@ def main() -> int:
             arg1 = 0xCAFEBABE
             payload = struct.pack("<II", arg0, arg1)   # 8 bytes little-endian
 
-            resp_id = client.submit_request(DEVICE_ID, opcode=ECHO_OPCODE,
-                                            data=payload)
-            check("submit_request returned a request_id",
-                  resp_id not in ("", "0", "None"),
-                  f"request_id={resp_id!r}")
-            print(f"       request_id={resp_id}")
+            raw = client.submit_request(DEVICE_ID, opcode=ECHO_OPCODE,
+                                        data=payload)
+            check("submit_request returned 8 response bytes",
+                  len(raw) == 8,
+                  f"len={len(raw)}")
+            if len(raw) == 8:
+                r0, r1 = struct.unpack_from("<II", raw)
+                check("ECHO data0 round-trips arg0", r0 == arg0,
+                      f"got 0x{r0:08X}, want 0x{arg0:08X}")
+                check("ECHO data1 round-trips arg1", r1 == arg1,
+                      f"got 0x{r1:08X}, want 0x{arg1:08X}")
+                print(f"       data0=0x{r0:08X}  data1=0x{r1:08X}")
             print()
 
             # ── 3. GetFirmwareInfo ─────────────────────────────────────────

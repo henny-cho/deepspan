@@ -108,7 +108,23 @@ class {{ desc.name_camel }}Client:
             {{ desc.name_camel }}Op.{{ op.name_upper }},
             payload,
         )
-        # TODO: decode raw response bytes into {{ op.name_camel }}Response
+        {% set offsets = desc.platform_registers.result_data_offsets() %}
+        {% set mapped_fields = op.response.fields | selectattr('maps_to') | list %}
+        {% set bytes_fields = op.response.fields | selectattr('type', 'equalto', 'bytes') | list %}
+        {% if mapped_fields or bytes_fields %}
+        _d = bytes(raw) if raw else b""
+        return {{ op.name_camel }}Response(
+        {% for f in op.response.fields %}
+        {% if f.maps_to and f.type in ('u8', 'u16', 'u32', 'u64') %}
+        {% set off = offsets[f.maps_to] %}
+            {{ f.name }}=struct.unpack_from("<I", _d, {{ off }})[0] if len(_d) >= {{ off + 4 }} else 0,
+        {% elif f.type == 'bytes' %}
+            {{ f.name }}=_d,
+        {% endif %}
+        {% endfor %}
+        )
+        {% else %}
         return {{ op.name_camel }}Response()
+        {% endif %}
 
 {% endfor %}

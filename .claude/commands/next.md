@@ -12,11 +12,10 @@ allowed-tools: Bash(grep:*), Bash(find:*), Bash(cat:*), Bash(git:*)
 ## Phase 계획 (참고)
 
 ### Phase 1 — 시뮬레이션 스택 완성
-- **1-1** Firmware native_sim MMIO 드라이버 (`firmware/app/src/hw_sim_driver.cpp`)
-  - shm_open + mmap으로 hw-model shm 연결, ECHO 명령 전송 루프
-- **1-2** mgmt-daemon sim pipe transport (GetFirmwareInfo 500 해소)
-  - Unix pipe 기반 stub 응답 반환
-- **1-3** server SubmitRequest shm 연결 (Go에서 RegMap 쓰기)
+- **1-1** Firmware native_sim MMIO 드라이버 (`firmware/app/src/main.cpp`)
+  - CONFIG_DEEPSPAN_HWIP_DRIVER_SIM 경로 구현됨; CIB nexus init + g_transport.init() (VirtIO 경로) 미완
+- **1-2** ~~mgmt-daemon sim pipe transport~~ — 폐기: Go 전체 제거(phase 7+8 리팩터)로 항목 무효화
+- **1-3** server SubmitRequest SHM 연결 — ✅ 완료 (AccelPlugin SHM submit/poll + E2E 테스트)
 
 ### Phase 2 — 커널 + userlib 연결
 - **2-1** 커널 virtio probe 완성 (`kernel/drivers/deepspan/deepspan_virtio.c`)

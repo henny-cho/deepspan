@@ -88,8 +88,11 @@ class AccelClient:
             AccelOp.ECHO,
             payload,
         )
-        # TODO: decode raw response bytes into EchoResponse
-        return EchoResponse()
+        _d = bytes(raw) if raw else b""
+        return EchoResponse(
+            data0=struct.unpack_from("<I", _d, 0)[0] if len(_d) >= 4 else 0,
+            data1=struct.unpack_from("<I", _d, 4)[0] if len(_d) >= 8 else 0,
+        )
 
     def process(
         self,
@@ -106,8 +109,10 @@ class AccelClient:
             AccelOp.PROCESS,
             payload,
         )
-        # TODO: decode raw response bytes into ProcessResponse
-        return ProcessResponse()
+        _d = bytes(raw) if raw else b""
+        return ProcessResponse(
+            result=_d,
+        )
 
     def status(
         self,
@@ -122,6 +127,8 @@ class AccelClient:
             AccelOp.STATUS,
             payload,
         )
-        # TODO: decode raw response bytes into StatusResponse
-        return StatusResponse()
+        _d = bytes(raw) if raw else b""
+        return StatusResponse(
+            status_word=struct.unpack_from("<I", _d, 0)[0] if len(_d) >= 4 else 0,
+        )
 

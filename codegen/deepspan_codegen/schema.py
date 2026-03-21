@@ -62,6 +62,20 @@ class PlatformRegisters(BaseModel):
     def all_registers(self) -> list[RegisterDef]:
         return self.control_bank + self.command_bank + self.result_bank
 
+    def result_data_offsets(self) -> dict[str, int]:
+        """Byte offsets of data result registers in the response payload.
+
+        The plugin packs result_bank registers (excluding ``result_status``)
+        sequentially as little-endian uint32.  Returns {register_name: byte_offset}.
+        """
+        offset = 0
+        result: dict[str, int] = {}
+        for reg in self.result_bank:
+            if reg.name != "result_status":
+                result[reg.name] = offset
+                offset += reg.size // 8
+        return result
+
 
 class OpField(BaseModel):
     name: str

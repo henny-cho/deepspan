@@ -63,7 +63,7 @@ class DeepspanClient:
 
         with DeepspanClient("localhost:8080") as client:
             devices = client.list_devices()
-            req_id = client.submit_request(devices[0].device_id, opcode=0x0001)
+            raw = client.submit_request(devices[0].device_id, opcode=0x0001)
     """
 
     def __init__(self, addr: str, timeout: float = 10.0) -> None:
@@ -126,8 +126,8 @@ class DeepspanClient:
             state=DeviceState(resp.info.state),
         )
 
-    def submit_request(self, device_id: str, opcode: int, data: bytes = b"") -> str:
-        """Submit a synchronous request. Returns request_id as a string."""
+    def submit_request(self, device_id: str, opcode: int, data: bytes = b"") -> bytes:
+        """Submit a synchronous request. Returns raw response bytes."""
         resp = self._hwip.SubmitRequest(
             device_pb2.SubmitRequestRequest(
                 device_id=device_id,
@@ -136,7 +136,7 @@ class DeepspanClient:
             ),
             timeout=self._timeout,
         )
-        return str(resp.request_id)
+        return bytes(resp.result)
 
     # ── ManagementService ────────────────────────────────────────────────────
 
