@@ -20,9 +20,9 @@
 ### 라이프사이클 순서
 
 ```
-setup → gen → build → lint → test → validate
-                                  ↗
-                           check (전체 CI 게이트)
+setup → gen → build → test → validate
+                           ↗
+                     check (전체 CI 게이트)
 ```
 
 ### 명령어 상세
@@ -34,7 +34,6 @@ setup → gen → build → lint → test → validate
 ./scripts/dev.sh setup --skip l2/firmware     # 느린 Zephyr SDK 다운로드 건너뜀
 ./scripts/dev.sh setup --layers l4/server,l6/sdk   # 특정 레이어만
 ./scripts/dev.sh setup --hooks                # git pre-commit 훅 설치 포함
-./scripts/dev.sh setup --lint-tools           # golangci-lint 설치 포함
 ./scripts/dev.sh setup --verify-only          # 설치 없이 검증만
 ```
 
@@ -43,29 +42,23 @@ setup → gen → build → lint → test → validate
 `--layers L1,L2` | 콤마 구분 레이어 목록으로 범위 한정
 `--skip L1` | 특정 레이어 건너뜀 (firmware는 다운로드가 오래 걸림)
 `--hooks` | `.githooks/`를 git hooks 경로로 설정
-`--lint-tools` | golangci-lint v2.11.3 설치
 `--verify-only` | 설치 단계 없이 현재 환경 검증만 수행
 
-사용 가능한 레이어: `l3/hw-model`, `l2/firmware`, `l2/kernel`, `l3/userlib`, `l3/appframework`, `l4/mgmt-daemon`, `l4/server`, `l6/sdk`
+사용 가능한 레이어: `l3/hw-model`, `l2/firmware`, `l2/kernel`, `l3/userlib`, `l3/appframework`, `l4/server`, `l6/sdk`
 
 ---
 
 #### `gen` — 코드 생성
 
-proto 파일과 hwip.yaml로부터 Go/Python 스텁 및 HWIP 레이어 아티팩트를 생성합니다.
+hwip.yaml로부터 HWIP 레이어 아티팩트를 생성합니다 (`deepspan-codegen`).
 
 ```bash
-./scripts/dev.sh gen                   # Go + Python 스텁 + 모든 HWIP 코드젠
-./scripts/dev.sh gen --go-only         # Python 출력 건너뜀
-./scripts/dev.sh gen --install         # buf CLI 및 플러그인 먼저 설치
-./scripts/dev.sh gen --skip-hwip       # HWIP 코드젠 단계 건너뜀
+./scripts/dev.sh gen                   # 모든 HWIP 코드젠
 ./scripts/dev.sh gen --hwip accel      # 특정 HWIP 타입만
 ./scripts/dev.sh gen --check           # Dry-run: 생성 파일이 최신인지 확인 (CI용)
 ```
 
 **출력 위치:**
-- Go 스텁: `l5/gen/go/deepspan/v1/`
-- Python 스텁: `l5/gen/python/deepspan/v1/`
 - HWIP 아티팩트: `hwip/<type>/gen/`
 
 ---
@@ -77,22 +70,10 @@ proto 파일과 hwip.yaml로부터 Go/Python 스텁 및 HWIP 레이어 아티팩
 ```bash
 ./scripts/dev.sh build                         # 모든 레이어 빌드
 ./scripts/dev.sh build --skip l2/firmware,l2/kernel  # 느린 레이어 제외
-./scripts/dev.sh build --layers l4/server,l4/mgmt-daemon
+./scripts/dev.sh build --layers l4/server
 ```
 
-빌드 순서 (의존성 우선): `l3/hw-model` → `l2/kernel` → `l3/userlib` → `l3/appframework` → `l2/firmware` → `l4/mgmt-daemon` → `l4/server` → `l6/sdk`
-
----
-
-#### `lint` — Go 정적 분석
-
-```bash
-./scripts/dev.sh lint                  # 모든 Go 워크스페이스 모듈
-./scripts/dev.sh lint --module l4/server
-./scripts/dev.sh lint --strict         # 실패 시 exit 1 (기본: 경고만)
-```
-
-`golangci-lint`가 없으면 자동으로 `go install`로 설치합니다.
+빌드 순서 (의존성 우선): `l3/hw-model` → `l2/kernel` → `l3/userlib` → `l3/appframework` → `l2/firmware` → `l4/server` → `l6/sdk`
 
 ---
 
@@ -106,24 +87,23 @@ proto 파일과 hwip.yaml로부터 Go/Python 스텁 및 HWIP 레이어 아티팩
 ./scripts/dev.sh test --hwip     # HWIP 통합 테스트로 라우팅 (hwip.sh test)
 ```
 
-시작 순서: `hw-model` → `firmware_sim` → `Zephyr` (존재 시) → `mgmt-daemon` → `accel-server` → SDK hello-world
+시작 순서: `hw-model` → `firmware_sim` → `Zephyr` (존재 시) → `accel-server` → SDK hello-world
 
 환경 변수로 오버라이드:
 - `SERVER_ADDR` — 서버 주소 (기본: `:8080`)
-- `MGMT_ADDR` — mgmt-daemon 주소 (기본: `:8081`)
 - `HW_MODEL_SHM` — POSIX shm 이름 (기본: `deepspan-sim`)
 
 ---
 
 #### `validate` — HWIP 아티팩트 검증
 
-생성된 HWIP 아티팩트에 대해 7가지 검사를 수행합니다 (`hwip.sh validate`로 위임).
+생성된 HWIP 아티팩트에 대해 검사를 수행합니다 (`hwip.sh validate`로 위임).
 
 ```bash
 ./scripts/dev.sh validate               # 모든 HWIP 검증
 ./scripts/dev.sh validate --hwip accel  # 단일 HWIP
-./scripts/dev.sh validate --fix         # gofmt, stale 코드젠 자동 수정
-./scripts/dev.sh validate --skip-syntax # C/C++/Go 문법 검사 건너뜀
+./scripts/dev.sh validate --fix         # stale 코드젠 자동 수정
+./scripts/dev.sh validate --skip-syntax # C/C++ 문법 검사 건너뜀
 ```
 
 ---
@@ -131,7 +111,7 @@ proto 파일과 hwip.yaml로부터 Go/Python 스텁 및 HWIP 레이어 아티팩
 #### `check` — 전체 CI 게이트
 
 ```bash
-./scripts/dev.sh check                     # build → lint → test → validate
+./scripts/dev.sh check                     # build → test → validate
 ./scripts/dev.sh check --skip l2/firmware  # 느린 레이어 제외
 ```
 
@@ -148,9 +128,9 @@ CI에서 사용하는 단일 진입점입니다. 모든 단계가 성공해야 e
 ### 라이프사이클 순서
 
 ```
-setup → gen → build → lint → validate → demo / test
-                                      ↗
-                               check (전체 CI 게이트)
+setup → gen → build → validate → test
+                              ↗
+                        check (전체 CI 게이트)
 ```
 
 ### 명령어 상세
@@ -162,113 +142,64 @@ setup → gen → build → lint → validate → demo / test
 ./hwip/scripts/hwip.sh setup --skip-codegen  # 툴 설치만, 코드젠 건너뜀
 ```
 
-`deepspan-codegen`을 `tools/deepspan-codegen/`에서 설치합니다 (`uv tool install` 또는 `pip install`).
+`deepspan-codegen`을 `uv sync`로 설치합니다.
 
 ---
 
 #### `gen` — HWIP 코드 생성
 
-두 단계로 구성된 파이프라인:
-- **Stage 1**: `hwip.yaml` → 언어별 아티팩트 (`deepspan-codegen`)
-- **Stage 2**: proto → Go/Python gRPC 스텁 (`buf generate`)
-
 ```bash
-./hwip/scripts/hwip.sh gen                   # 모든 HWIP, 모든 단계
+./hwip/scripts/hwip.sh gen                   # 모든 HWIP
 ./hwip/scripts/hwip.sh gen --hwip accel      # 특정 HWIP만
-./hwip/scripts/hwip.sh gen --stage 1         # Stage 1만 (buf 없이)
-./hwip/scripts/hwip.sh gen --stage 2         # Stage 2만 (buf generate)
 ./hwip/scripts/hwip.sh gen --check           # Dry-run: 스테일 여부 확인
 ```
 
 ---
 
-#### `build` — 데모 바이너리 빌드
+#### `build` — C++ 빌드
 
 ```bash
 ./hwip/scripts/hwip.sh build
 ```
 
-빌드 대상: `hwsim`, `demo-server`, `demo-client` (→ `hwip/.demo-bin/`), `accel/l4-plugin`
+빌드 대상: `deepspan-hw-model`, `deepspan-server`, `accel-plugin` (→ `build/bin/`)
 
 ---
 
-#### `lint` — Go 정적 분석
-
-```bash
-./hwip/scripts/hwip.sh lint                       # 모든 HWIP Go 모듈
-./hwip/scripts/hwip.sh lint --module accel/l4-plugin
-```
-
-플랫폼 `dev.sh lint`에 위임하여 golangci-lint 버전을 동기화합니다.
-
----
-
-#### `validate` — 7-check 아티팩트 검증
-
-생성된 파일의 7가지 품질 검사를 수행합니다:
+#### `validate` — 아티팩트 검증
 
 | # | 검사 | 도구 |
 |---|------|------|
-| 1 | Codegen stale check | `deepspan-codegen` (diff) |
+| 1 | Codegen stale check | `deepspan-codegen --dry-run` (diff) |
 | 2 | C kernel header 문법 | `gcc -fsyntax-only` |
 | 3 | C++ hw_model header 문법 | `g++ -fsyntax-only -std=c++17` |
-| 4 | Go 포맷 | `gofmt -l` |
-| 5 | Go vet | `go vet` |
-| 6 | Python 문법 | `python3 -m py_compile` |
-| 7 | Proto lint | `buf lint` |
+| 4 | Python 문법 | `python3 -m py_compile` |
+| 5 | Proto lint | `buf lint` |
+| 6 | codegen 단위 테스트 | `pytest codegen/tests/ -q` |
 
 ```bash
 ./hwip/scripts/hwip.sh validate                  # 모든 HWIP
 ./hwip/scripts/hwip.sh validate --hwip accel     # 단일 HWIP
 ./hwip/scripts/hwip.sh validate --fix            # 자동 수정 가능 항목 수정
-./hwip/scripts/hwip.sh validate --skip-syntax    # C/C++/Go 문법 검사 건너뜀
+./hwip/scripts/hwip.sh validate --skip-syntax    # C/C++ 문법 검사 건너뜀
 ```
 
 ---
 
-#### `demo` — 풀스택 HWIP 데모
+#### `test` — 통합 테스트
 
 ```bash
-./hwip/scripts/hwip.sh demo                      # hwsim + demo-server + demo-client
-./hwip/scripts/hwip.sh demo --stub               # 하드웨어 없이 stub 모드
-./hwip/scripts/hwip.sh demo --addr :9090         # 다른 포트 사용
-./hwip/scripts/hwip.sh demo --shm my_accel       # POSIX shm 이름 변경
-./hwip/scripts/hwip.sh demo --verbose            # hwsim 상세 로그
-```
-
----
-
-#### `test` — 통합 테스트 (9개 테스트 케이스)
-
-curl 기반 ConnectRPC JSON 어설션으로 서버 동작을 검증합니다.
-
-```bash
-./hwip/scripts/hwip.sh test                      # hwsim 모드 (하드웨어 필요)
+./hwip/scripts/hwip.sh test                      # hw-model + server + SDK E2E
 ./hwip/scripts/hwip.sh test --stub               # stub 모드 (하드웨어 불필요)
-./hwip/scripts/hwip.sh test --port 9090
 ```
-
-테스트 케이스: healthz, ListDevices, SubmitRequest (Echo), AccelEcho, AccelProcess, AccelStatus, AccelSubmitRequest, demo-client end-to-end, concurrent Echo×10
 
 ---
 
 #### `check` — 전체 HWIP CI 게이트
 
 ```bash
-./hwip/scripts/hwip.sh check   # build → lint → validate → test (stub 모드)
+./hwip/scripts/hwip.sh check   # build → validate → test (stub 모드)
 ```
-
----
-
-## 레이어별 스크립트
-
-각 레이어(`l*/`)에는 세 가지 표준 스크립트가 있습니다. `dev.sh`가 내부적으로 이들을 호출합니다.
-
-| 스크립트 | 역할 |
-|---------|------|
-| `<layer>/scripts/setup-dev.sh` | 해당 레이어 툴체인 설치 |
-| `<layer>/scripts/build.sh` | 해당 레이어 빌드 + 테스트 |
-| `<layer>/scripts/verify-setup.sh` | 툴체인 설치 상태 확인 |
 
 ---
 
@@ -276,12 +207,12 @@ curl 기반 ConnectRPC JSON 어설션으로 서버 동작을 검증합니다.
 
 ```bash
 # 신규 개발자 온보딩
-./scripts/dev.sh setup --hooks --lint-tools
+uv sync
+./scripts/dev.sh setup --hooks
 
 # 코드 수정 후 검증
 ./scripts/dev.sh gen --check          # 생성 파일 최신 여부
 ./scripts/dev.sh build --skip l2/firmware,l2/kernel
-./scripts/dev.sh lint
 
 # 풀스택 테스트
 ./scripts/dev.sh test

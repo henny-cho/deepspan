@@ -1,57 +1,62 @@
 ---
-description: buf proto codegen 실행, 생성 파일 diff 확인, 변경 시 커밋 제안
-allowed-tools: Bash(bash:*), Bash(git:*), Bash(cat:*), Bash(ls:*)
+description: deepspan-codegen 실행, 생성 파일 diff 확인, 변경 시 커밋 제안
+allowed-tools: Bash(bash:*), Bash(git:*), Bash(cat:*), Bash(ls:*), Bash(python:*)
 ---
 
 ## Context
 
-- codegen script: !`ls /home/choih/works/ih-scratch/deepspan/scripts/codegen.sh`
-- buf version: !`buf --version 2>/dev/null || echo "buf not found"`
-- buf plugins (local): !`ls /home/choih/goes/bin/protoc-gen-go /home/choih/goes/bin/protoc-gen-connect-go 2>/dev/null || which protoc-gen-go protoc-gen-connect-go 2>/dev/null || echo "plugins not found"`
-- Current gen/go diff: !`git -C /home/choih/works/ih-scratch/deepspan diff --stat gen/go/ 2>/dev/null`
-- proto files: !`find /home/choih/works/ih-scratch/deepspan/proto -name "*.proto" 2>/dev/null`
+- codegen tool: !`python -m deepspan_codegen --help 2>/dev/null | head -5 || echo "deepspan_codegen not found — run: uv sync"`
+- uv sync status: !`ls /home/choih/works/ih-scratch/deepspan/.venv/bin/activate 2>/dev/null && echo "venv exists" || echo "venv missing"`
+- current gen diff: !`git -C /home/choih/works/ih-scratch/deepspan diff --stat hwip/accel/gen/ 2>/dev/null`
+- hwip.yaml files: !`find /home/choih/works/ih-scratch/deepspan/hwip -name "hwip.yaml" 2>/dev/null`
 
 ## Your task
 
-Protobuf codegen을 실행하고 결과를 검증하세요.
+deepspan-codegen을 실행하고 생성 파일을 검증하세요.
 
 ### 절차
 
 1. **환경 확인**:
-   - `buf` 설치 확인
-   - `protoc-gen-go`, `protoc-gen-connect-go` local 플러그인 확인
-   - 없으면 설치 방법 안내:
-     ```bash
-     go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-     go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
-     ```
+   - `.venv` 존재 여부 확인
+   - 없으면 `uv sync` 실행
 
 2. **실행**:
    ```bash
    cd /home/choih/works/ih-scratch/deepspan
-   bash scripts/codegen.sh
+   source .venv/bin/activate
+   python -m deepspan_codegen -d hwip/accel/hwip.yaml -o hwip/accel/gen
    ```
 
 3. **변경 확인**:
    ```bash
-   git diff --stat gen/go/
-   git diff gen/go/
+   git diff --stat hwip/accel/gen/
+   git diff hwip/accel/gen/
    ```
 
 4. **결과 분류**:
-   - 변경 없음: "proto와 gen 코드가 동기화됨" 출력
+   - 변경 없음: "gen 코드가 hwip.yaml과 동기화됨" 출력
    - 변경 있음:
-     - 변경 내용 요약 (어떤 메시지/서비스가 바뀌었는지)
-     - 서버/mgmt-daemon 컴파일 영향 확인
+     - 변경 내용 요약 (어떤 타겟이 바뀌었는지)
      - 커밋 여부 물어보기
 
-5. **커밋 시** (`build(proto): regenerate Go stubs` 형식 사용):
+5. **커밋 시** (`build(codegen): regenerate accel artifacts` 형식 사용):
    ```bash
-   git add gen/go/
-   git commit -m "build(proto): regenerate Go stubs"
+   git add hwip/accel/gen/
+   git commit -m "build(codegen): regenerate accel artifacts"
    ```
 
+### 생성 타겟 목록
+
+| 타겟 | 출력 경로 | 용도 |
+|------|-----------|------|
+| `kernel` | `gen/kernel/deepspan_accel.h` | C 커널/펌웨어 헤더 |
+| `firmware` | `gen/firmware/deepspan_accel/dispatch.h` | Zephyr dispatch |
+| `hw_model` | `gen/sim/deepspan_accel/ops.hpp` | C++ hw-model ops |
+| `rpc` | `gen/rpc/accel.hpp` | C++ RPC opcodes |
+| `proto` | `gen/proto/deepspan_accel/v1/device.proto` | Protobuf 정의 |
+| `python` | `gen/sdk/deepspan_accel/models.py` | Python Pydantic SDK |
+
 ### 주의사항
-- `buf.gen.yaml`은 `local:` 플러그인 사용 (remote 플러그인 아님)
-- gen/python/ 은 .gitignore에서 제외됨 (커밋 불필요)
-- codegen 후 server/mgmt-daemon go build 확인 권장
+- `gen/` 아래 파일은 `# AUTO-GENERATED` 헤더 — 직접 수정 금지
+- `hwip.yaml`을 수정한 경우 반드시 재생성 후 커밋
+- Python SDK 변경 시 `sdk/tests/` 재실행: `python -m pytest codegen/tests/ sdk/tests/ --import-mode=importlib -q`

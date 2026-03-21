@@ -5,7 +5,7 @@ allowed-tools: Bash(grep:*), Bash(find:*), Bash(cat:*), Bash(git:*)
 
 ## Context
 
-- TODO/stub summary: !`grep -rn "TODO\|FIXME\|stub\|Stub" /home/choih/works/ih-scratch/deepspan --include="*.go" --include="*.cpp" --include="*.hpp" --include="*.py" --include="*.c" -l 2>/dev/null | grep -v "build/" | grep -v ".git/" | while read f; do echo "$f: $(grep -c 'TODO\|FIXME\|stub\|Stub' $f)"; done`
+- TODO/stub summary: !`grep -rn "TODO\|FIXME\|stub\|Stub" /home/choih/works/ih-scratch/deepspan --include="*.cpp" --include="*.hpp" --include="*.py" --include="*.c" --include="*.h" -l 2>/dev/null | grep -v "build/" | grep -v ".git/" | while read f; do echo "$f: $(grep -c 'TODO\|FIXME\|stub\|Stub' $f)"; done`
 - Recent git log: !`git -C /home/choih/works/ih-scratch/deepspan log --oneline -5`
 - Modified/untracked: !`git -C /home/choih/works/ih-scratch/deepspan status --short`
 
@@ -23,7 +23,7 @@ allowed-tools: Bash(grep:*), Bash(find:*), Bash(cat:*), Bash(git:*)
 - **2-3** appframework DevicePool 실제 연결
 
 ### Phase 3 — 전체 경로 통합
-- **3-1** server HwipService CGo 브릿지
+- **3-1** server HwipService 다중 HWIP 타입 동적 로딩 (C++ plugin registry 확장)
 - **3-2** QEMU virtio-mmio 환경 지원
 
 ## Your task

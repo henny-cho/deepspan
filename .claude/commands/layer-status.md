@@ -5,8 +5,8 @@ allowed-tools: Bash(grep:*), Bash(find:*), Bash(ls:*), Bash(git:*)
 
 ## Context
 
-- TODO/stub locations: !`grep -rn "TODO\|FIXME\|stub\|Stub\|placeholder\|not implemented" /home/choih/works/ih-scratch/deepspan --include="*.go" --include="*.cpp" --include="*.hpp" --include="*.py" --include="*.c" --include="*.h" -l 2>/dev/null | grep -v "build/" | grep -v ".git/"`
-- Binary existence: !`ls /home/choih/works/ih-scratch/deepspan/hw-model/build/deepspan-hw-model /home/choih/works/ih-scratch/deepspan/hw-model/build/deepspan-firmware-sim /home/choih/works/ih-scratch/deepspan/build/bin/deepspan-server /home/choih/works/ih-scratch/deepspan/build/bin/mgmt-daemon /home/choih/works/ih-scratch/deepspan/build/firmware/app/zephyr/zephyr.exe 2>&1`
+- TODO/stub locations: !`grep -rn "TODO\|FIXME\|stub\|Stub\|placeholder\|not implemented" /home/choih/works/ih-scratch/deepspan --include="*.cpp" --include="*.hpp" --include="*.py" --include="*.c" --include="*.h" -l 2>/dev/null | grep -v "build/" | grep -v ".git/"`
+- Binary existence: !`ls /home/choih/works/ih-scratch/deepspan/build/bin/deepspan-hw-model /home/choih/works/ih-scratch/deepspan/build/bin/deepspan-firmware-sim /home/choih/works/ih-scratch/deepspan/build/bin/deepspan-server /home/choih/works/ih-scratch/deepspan/build/firmware/app/zephyr/zephyr.exe 2>&1`
 - Recent commits: !`git -C /home/choih/works/ih-scratch/deepspan log --oneline -10`
 - Untracked/modified files: !`git -C /home/choih/works/ih-scratch/deepspan status --short`
 
@@ -16,7 +16,7 @@ Deepspan 멀티레이어 스택의 현재 구현 상태를 분석하여 보고�
 
 ### 각 레이어별로 확인할 항목
 
-레이어 목록: `hw-model`, `firmware`, `kernel`, `userlib`, `appframework`, `mgmt-daemon`, `server`, `sdk`
+레이어 목록: `hw-model`, `firmware`, `kernel`, `userlib`, `appframework`, `server`, `sdk`
 
 각 레이어에 대해:
 1. 소스 파일 구조 파악 (핵심 파일만)
