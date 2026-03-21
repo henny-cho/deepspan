@@ -23,7 +23,7 @@ option(DEEPSPAN_BUILD_TESTS
 # ---------------------------------------------------------------------------
 # Language standard
 # ---------------------------------------------------------------------------
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -31,7 +31,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Dependencies
 # ---------------------------------------------------------------------------
 
-# ETL is used only in Zephyr firmware; userlib uses std::expected (C++23).
+# ETL is used only in Zephyr firmware; userlib uses tl::expected (C++20 backport).
+
+# tl::expected — C++20 backport of std::expected (header-only)
+set(DEEPSPAN_TL_EXPECTED_DIR
+    "${PROJECT_SOURCE_DIR}/../../third_party/tl-expected/include"
+    CACHE PATH "tl::expected include directory (third_party/tl-expected/include)")
 
 # liburing — always sourced from the system (not vendored)
 find_package(PkgConfig REQUIRED)
@@ -55,6 +60,7 @@ set(DEEPSPAN_KERNEL_UAPI_DIR "${PROJECT_SOURCE_DIR}/../../kernel/include/uapi"
 target_include_directories(deepspan-userlib
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${DEEPSPAN_TL_EXPECTED_DIR}>
         $<INSTALL_INTERFACE:include>
     PRIVATE
         # Expose the kernel UAPI headers as <linux/deepspan.h>
@@ -66,7 +72,7 @@ target_link_libraries(deepspan-userlib
         PkgConfig::liburing
 )
 
-target_compile_features(deepspan-userlib PUBLIC cxx_std_23)
+target_compile_features(deepspan-userlib PUBLIC cxx_std_20)
 
 target_compile_options(deepspan-userlib PRIVATE
     -Wall

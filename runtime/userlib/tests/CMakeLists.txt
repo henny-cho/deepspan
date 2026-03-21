@@ -45,7 +45,7 @@ target_include_directories(deepspan-userlib-tests PRIVATE
     ${PROJECT_SOURCE_DIR}/../../kernel/include/uapi
 )
 
-target_compile_features(deepspan-userlib-tests PRIVATE cxx_std_23)
+target_compile_features(deepspan-userlib-tests PRIVATE cxx_std_20)
 
 target_compile_options(deepspan-userlib-tests PRIVATE
     -Wall

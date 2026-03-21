@@ -6,7 +6,7 @@
 #pragma once
 
 #include <cstdint>
-#include <expected>
+#include "tl/expected.hpp"
 #include <string_view>
 
 // Forward-declare the kernel UAPI types so that callers only need this header.
@@ -34,7 +34,7 @@ public:
     ///   - Error::UnsupportedKernelVersion  if the driver UAPI version is
     ///                                      below DEEPSPAN_UAPI_VERSION_MIN
     ///   - Error::IoError                   if the version ioctl fails
-    static std::expected<DeepspanDevice, Error> open(std::string_view device_path);
+    static tl::expected<DeepspanDevice, Error> open(std::string_view device_path);
 
     /// Closes the file descriptor.
     ~DeepspanDevice();
@@ -60,7 +60,7 @@ public:
     /// Use this when io_uring is unavailable or for simple one-shot calls.
     /// Errors:
     ///   - Error::SubmitFailed  if the ioctl returns an error
-    std::expected<deepspan_result, Error> submit_sync(const deepspan_req& req);
+    tl::expected<deepspan_result, Error> submit_sync(const deepspan_req& req);
 
 private:
     explicit DeepspanDevice(int fd, uint32_t uapi_ver) noexcept;

@@ -7,7 +7,7 @@
 #       HINTS "$ENV{DEEPSPAN_PLATFORM_DIR}/lib/cmake/DeepspanPlatform")
 #
 # Imported targets:
-#   Deepspan::deepspan-appframework   — C++23 session manager library
-#   Deepspan::deepspan-userlib        — C++23 async ioctl/io_uring client
+#   Deepspan::deepspan-appframework   — C++20 session manager library
+#   Deepspan::deepspan-userlib        — C++20 async ioctl/io_uring client
 
 include("${CMAKE_CURRENT_LIST_DIR}/DeepspanPlatformTargets.cmake")

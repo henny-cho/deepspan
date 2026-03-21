@@ -42,16 +42,16 @@ AsyncClient::AsyncClient(io_uring ring, int device_fd) noexcept
 // Static factory: create()
 // ---------------------------------------------------------------------------
 
-std::expected<AsyncClient, Error>
+tl::expected<AsyncClient, Error>
 AsyncClient::create(DeepspanDevice& device, unsigned queue_depth) {
     if (device.fd() < 0) {
-        return std::unexpected(Error::DeviceOpenFailed);
+        return tl::make_unexpected(Error::DeviceOpenFailed);
     }
 
     io_uring ring{};
     const int ret = io_uring_queue_init(queue_depth, &ring, 0);
     if (ret < 0) {
-        return std::unexpected(Error::IouringSetupFailed);
+        return tl::make_unexpected(Error::IouringSetupFailed);
     }
 
     return AsyncClient{ring, device.fd()};
@@ -98,12 +98,12 @@ AsyncClient& AsyncClient::operator=(AsyncClient&& other) noexcept {
 // submit()
 // ---------------------------------------------------------------------------
 
-std::expected<void, Error>
+tl::expected<void, Error>
 AsyncClient::submit(const deepspan_req& req, uint64_t user_data) {
     io_uring_sqe* sqe = io_uring_get_sqe(&ring_);
     if (sqe == nullptr) {
         // SQ is full.
-        return std::unexpected(Error::SubmitFailed);
+        return tl::make_unexpected(Error::SubmitFailed);
     }
 
     // Keep a copy of the request because the kernel may read it asynchronously
@@ -126,17 +126,17 @@ AsyncClient::submit(const deepspan_req& req, uint64_t user_data) {
 
     const int submitted = io_uring_submit(&ring_);
     if (submitted < 0) {
-        return std::unexpected(Error::SubmitFailed);
+        return tl::make_unexpected(Error::SubmitFailed);
     }
 
-    return {};  // std::expected<void, Error> success
+    return {};  // tl::expected<void, Error> success
 }
 
 // ---------------------------------------------------------------------------
 // reap()
 // ---------------------------------------------------------------------------
 
-std::expected<int, Error>
+tl::expected<int, Error>
 AsyncClient::reap(CompletionCallback cb, bool wait) {
     io_uring_cqe* cqe = nullptr;
     int count = 0;
@@ -144,7 +144,7 @@ AsyncClient::reap(CompletionCallback cb, bool wait) {
     if (wait) {
         const int ret = io_uring_wait_cqe(&ring_, &cqe);
         if (ret < 0) {
-            return std::unexpected(Error::IoError);
+            return tl::make_unexpected(Error::IoError);
         }
         deepspan_result dr{};
         dr.status = cqe->res;
@@ -152,7 +152,7 @@ AsyncClient::reap(CompletionCallback cb, bool wait) {
         io_uring_cqe_seen(&ring_, cqe);
         ++count;
         if (dr.status < 0) {
-            cb(token, std::unexpected(Error::IoError));
+            cb(token, tl::make_unexpected(Error::IoError));
         } else {
             cb(token, dr);
         }
@@ -166,7 +166,7 @@ AsyncClient::reap(CompletionCallback cb, bool wait) {
         io_uring_cqe_seen(&ring_, cqe);
         ++count;
         if (dr.status < 0) {
-            cb(token, std::unexpected(Error::IoError));
+            cb(token, tl::make_unexpected(Error::IoError));
         } else {
             cb(token, dr);
         }
@@ -179,22 +179,22 @@ AsyncClient::reap(CompletionCallback cb, bool wait) {
 // submit_and_wait()
 // ---------------------------------------------------------------------------
 
-std::expected<deepspan_result, Error>
+tl::expected<deepspan_result, Error>
 AsyncClient::submit_and_wait(const deepspan_req& req) {
     auto submit_result = submit(req, 0);
     if (!submit_result.has_value()) {
-        return std::unexpected(submit_result.error());
+        return tl::make_unexpected(submit_result.error());
     }
 
-    std::expected<deepspan_result, Error> captured = std::unexpected(Error::IoError);
+    tl::expected<deepspan_result, Error> captured = tl::make_unexpected(Error::IoError);
     auto reap_result = reap(
-        [&captured](uint64_t, std::expected<deepspan_result, Error> r) {
+        [&captured](uint64_t, tl::expected<deepspan_result, Error> r) {
             captured = std::move(r);
         },
         /*wait=*/true);
 
     if (!reap_result.has_value()) {
-        return std::unexpected(reap_result.error());
+        return tl::make_unexpected(reap_result.error());
     }
 
     return captured;

@@ -6,7 +6,7 @@
 #pragma once
 
 #include <cstdint>
-#include <expected>
+#include "tl/expected.hpp"
 #include <functional>
 
 #include <liburing.h>
@@ -24,9 +24,9 @@ namespace deepspan::userlib {
 ///
 /// Arguments:
 ///   uint64_t                               — the user_data token supplied to submit()
-///   std::expected<deepspan_result, Error>  — result or error
+///   tl::expected<deepspan_result, Error>  — result or error
 using CompletionCallback =
-    std::function<void(uint64_t, std::expected<deepspan_result, Error>)>;
+    std::function<void(uint64_t, tl::expected<deepspan_result, Error>)>;
 
 /// io_uring based async client for Deepspan HWIP operations.
 ///
@@ -44,7 +44,7 @@ public:
     ///
     /// Errors:
     ///   - Error::IouringSetupFailed  if io_uring_queue_init() fails
-    static std::expected<AsyncClient, Error> create(DeepspanDevice& device,
+    static tl::expected<AsyncClient, Error> create(DeepspanDevice& device,
                                                     unsigned queue_depth = 64);
 
     /// Tears down the io_uring and releases kernel resources.
@@ -65,7 +65,7 @@ public:
     ///
     /// Errors:
     ///   - Error::SubmitFailed  if no SQE slot is available or io_uring_submit fails
-    std::expected<void, Error> submit(const deepspan_req& req, uint64_t user_data);
+    tl::expected<void, Error> submit(const deepspan_req& req, uint64_t user_data);
 
     /// Harvest completed requests and invoke \p cb for each one.
     ///
@@ -73,12 +73,12 @@ public:
     /// \param wait  If true, block until at least one completion is available.
     ///
     /// \returns The number of completions processed, or an Error.
-    std::expected<int, Error> reap(CompletionCallback cb, bool wait = false);
+    tl::expected<int, Error> reap(CompletionCallback cb, bool wait = false);
 
     /// Convenience wrapper: submit one request and block until it completes.
     ///
     /// Errors: any error from submit() or reap().
-    std::expected<deepspan_result, Error> submit_and_wait(const deepspan_req& req);
+    tl::expected<deepspan_result, Error> submit_and_wait(const deepspan_req& req);
 
 private:
     explicit AsyncClient(io_uring ring, int device_fd) noexcept;

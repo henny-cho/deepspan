@@ -38,7 +38,7 @@ target_link_libraries(deepspan-appframework-tests
         GTest::gtest_main
 )
 
-target_compile_features(deepspan-appframework-tests PRIVATE cxx_std_23)
+target_compile_features(deepspan-appframework-tests PRIVATE cxx_std_20)
 
 target_compile_options(deepspan-appframework-tests PRIVATE
     -Wall

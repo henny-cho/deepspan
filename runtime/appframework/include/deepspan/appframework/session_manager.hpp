@@ -6,7 +6,7 @@
 #include "device_pool.hpp"
 #include "circuit_breaker.hpp"
 #include <deepspan/userlib/error.hpp>
-#include <expected>
+#include "tl/expected.hpp"
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -24,11 +24,11 @@ public:
         CircuitBreaker::Config cb_config{};
     };
 
-    static std::expected<SessionManager, deepspan::userlib::Error> create(Config cfg);
+    static tl::expected<SessionManager, deepspan::userlib::Error> create(Config cfg);
 
     // execute(): executes f using an available device.
     // f: (AsyncClient&) → bool  (true=success, false=failure for CB)
-    std::expected<void, deepspan::userlib::Error>
+    tl::expected<void, deepspan::userlib::Error>
         execute(std::function<bool(deepspan::userlib::AsyncClient&)> f);
 
     CircuitBreaker::State circuit_state() const noexcept;
