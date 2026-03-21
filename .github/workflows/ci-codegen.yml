@@ -178,3 +178,21 @@ jobs:
             hwip/accel/gen/sdk/deepspan_accel/models.py; do
             test -f "$f" && echo "OK: $f" || (echo "MISSING: $f" && exit 1)
           done
+
+      - name: Generate from real hwip/crc32/hwip.yaml (staleness check)
+        run: |
+          uv run --directory codegen deepspan-codegen \
+            --descriptor "$GITHUB_WORKSPACE/hwip/crc32/hwip.yaml" \
+            --out /tmp/gen-crc32-real
+          echo "OK: generated from hwip/crc32/hwip.yaml"
+
+      - name: Verify real crc32 gen matches checked-in artifacts
+        run: |
+          for f in \
+            hwip/crc32/gen/kernel/deepspan_crc32.h \
+            hwip/crc32/gen/sim/deepspan_crc32/ops.hpp \
+            hwip/crc32/gen/proto/deepspan_crc32/v1/device.proto \
+            hwip/crc32/gen/rpc/crc32.hpp \
+            hwip/crc32/gen/sdk/deepspan_crc32/models.py; do
+            test -f "$f" && echo "OK: $f" || (echo "MISSING: $f" && exit 1)
+          done

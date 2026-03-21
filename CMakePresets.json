@@ -97,6 +97,17 @@
         "DEEPSPAN_BUILD_SERVER": "ON",
         "HWIP_TYPES": "accel,codec"
       }
+    },
+    {
+      "name": "dev-crc32",
+      "inherits": "dev",
+      "displayName": "Dev + CRC32 HWIP",
+      "description": "Userspace + CRC32 HWIP plugin + server, debug, tests ON",
+      "cacheVariables": {
+        "DEEPSPAN_BUILD_HWIP": "ON",
+        "DEEPSPAN_BUILD_SERVER": "ON",
+        "HWIP_TYPES": "crc32"
+      }
     }
   ],
   "buildPresets": [
@@ -106,7 +117,8 @@
     { "name": "release",        "configurePreset": "release" },
     { "name": "coverage",       "configurePreset": "coverage" },
     { "name": "dev-hwip",       "configurePreset": "dev-hwip" },
-    { "name": "dev-multi-hwip", "configurePreset": "dev-multi-hwip" }
+    { "name": "dev-multi-hwip", "configurePreset": "dev-multi-hwip" },
+    { "name": "dev-crc32",      "configurePreset": "dev-crc32" }
   ],
   "testPresets": [
     {
@@ -135,6 +147,12 @@
     {
       "name": "dev-multi-hwip",
       "configurePreset": "dev-multi-hwip",
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 4 }
+    },
+    {
+      "name": "dev-crc32",
+      "configurePreset": "dev-crc32",
       "output": { "outputOnFailure": true },
       "execution": { "jobs": 4 }
     }

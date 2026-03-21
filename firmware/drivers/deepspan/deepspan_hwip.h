@@ -51,6 +51,26 @@ int deepspan_hwip_submit_cmd(const struct device *dev,
  */
 uint32_t deepspan_hwip_version(const struct device *dev);
 
+/**
+ * @brief Write data to the DMA buffer in shared memory (sim) or set up a
+ *        DMA descriptor (real hardware) before issuing a dma_bytes command.
+ *
+ * Must be called before deepspan_hwip_submit_cmd() for opcodes that use the
+ * dma_bytes encoding (e.g. CRC32 COMPUTE).  The driver writes @p data to the
+ * SHM DMA region at offset 0x300 so the hw-model can read it.
+ *
+ * @param dev   HWIP device
+ * @param data  Pointer to input data buffer
+ * @param len   Length of @p data in bytes (max 3072)
+ *
+ * @retval 0        Data staged successfully
+ * @retval -EINVAL  @p len exceeds maximum DMA buffer size
+ * @retval -EIO     Device not available
+ * @retval -ENOTSUP Not supported on this driver variant (production stub)
+ */
+int deepspan_hwip_set_dma(const struct device *dev,
+			  const void *data, uint32_t len);
+
 #ifdef CONFIG_DEEPSPAN_HWIP_DRIVER_SIM
 /**
  * @brief Get the singleton native_sim HWIP device.

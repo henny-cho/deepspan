@@ -22,7 +22,7 @@ runs:
           libspdlog-dev
 
     - name: Install deepspan-codegen (hwip preset)
-      if: ${{ inputs.preset == 'dev-hwip' || inputs.preset == 'dev-multi-hwip' }}
+      if: ${{ inputs.preset == 'dev-hwip' || inputs.preset == 'dev-multi-hwip' || inputs.preset == 'dev-crc32' }}
       shell: bash
       working-directory: codegen
       run: pip install --break-system-packages -e .

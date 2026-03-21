@@ -12,6 +12,9 @@ deepspan-objs := \
 deepspan-$(CONFIG_DEEPSPAN_TRANSPORT_SIM) += deepspan_transport_sim.o
 deepspan-$(CONFIG_DEEPSPAN_TRANSPORT_HW)  += deepspan_transport_hw.o
 
+# CRC32 Linux Crypto API shash bridge (optional, enabled by CONFIG_DEEPSPAN_CRC32_SHASH)
+obj-$(CONFIG_DEEPSPAN_CRC32_SHASH) += deepspan_crc32_shash.o
+
 obj-$(CONFIG_DEEPSPAN_KUNIT_TEST) += tests/deepspan_test.o
 
 KVERSION ?= $(shell uname -r)

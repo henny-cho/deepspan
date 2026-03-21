@@ -50,6 +50,10 @@ LOG_MODULE_REGISTER(deepspan_hwip_sim, CONFIG_DEEPSPAN_LOG_LEVEL);
 #define SHM_MMAP_SIZE    4096
 #define SHM_OPEN_RETRIES 50   /* 50 × 100 ms = 5 s */
 
+/* DMA buffer area within the SHM page (must match crc32_plugin.cpp / hw-model) */
+#define SHM_DMA_OFFSET  0x300u   /* after RegMap (0x200) + ShmStats (0x20) */
+#define SHM_DMA_MAX_LEN 0xC00u   /* 3072 bytes max */
+
 /* ── Driver data ─────────────────────────────────────────────────────── */
 struct hwip_sim_data {
 	void          *shm_base;
@@ -239,4 +243,22 @@ uint32_t deepspan_hwip_version(const struct device *dev)
 		return 0;
 	}
 	return reg_read(data->shm_base, REG_VERSION);
+}
+
+int deepspan_hwip_set_dma(const struct device *dev,
+			  const void *src, uint32_t len)
+{
+	const struct hwip_sim_data *data = dev->data;
+
+	if (!data->shm_base) {
+		return -EIO;
+	}
+	if (len > SHM_DMA_MAX_LEN) {
+		LOG_ERR("set_dma: len %u exceeds max %u", len, SHM_DMA_MAX_LEN);
+		return -EINVAL;
+	}
+	/* Copy data to the DMA buffer region of the SHM page.
+	 * The hw-model reads from this region when it processes COMPUTE. */
+	memcpy((char *)data->shm_base + SHM_DMA_OFFSET, src, len);
+	return 0;
 }

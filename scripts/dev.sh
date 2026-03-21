@@ -6,7 +6,7 @@
 #   setup     Install toolchains, git hooks, and lint tools
 #   gen       Generate code from proto / hwip.yaml specs
 #   build     Compile all layers and report results
-#   lint      Go static analysis (golangci-lint)
+#   lint      C++ static analysis (clang-tidy)
 #   test      Full-stack simulation test (or HWIP integration tests)
 #   validate  Validate generated HWIP artifacts (7-check)
 #   check     Full CI gate: build → lint → test → validate
@@ -401,6 +401,10 @@ cmd_build() {
 
     section "build: cmake --preset ${preset}"
     cd "${DEEPSPAN_ROOT}"
+    # Auto-use ccache when available (can be overridden by env)
+    if command -v ccache &>/dev/null && [[ -z "${CMAKE_CXX_COMPILER_LAUNCHER:-}" ]]; then
+        export CMAKE_CXX_COMPILER_LAUNCHER=ccache
+    fi
     local t_start t_end
     t_start=$(date +%s)
     cmake --preset "${preset}"
@@ -495,7 +499,14 @@ cmd_test() {
     local BUILD_DIR="${DEEPSPAN_ROOT}/build/${preset}"
     local HW_MODEL_BIN="${BUILD_DIR}/sim/hw-model/deepspan-hw-model"
     local SERVER_BIN="${BUILD_DIR}/server/deepspan-server"
-    local PLUGIN_SO="${BUILD_DIR}/hwip/accel/plugin/libhwip_accel.so"
+    # Auto-detect HWIP plugin: prefer accel, fall back to first .so found
+    local PLUGIN_SO=""
+    if [[ -f "${BUILD_DIR}/hwip/accel/plugin/libhwip_accel.so" ]]; then
+        PLUGIN_SO="${BUILD_DIR}/hwip/accel/plugin/libhwip_accel.so"
+    else
+        while IFS= read -r so; do PLUGIN_SO="$so"; break
+        done < <(find "${BUILD_DIR}/hwip" -name "lib*.so" -path "*/plugin/*" 2>/dev/null | sort)
+    fi
     local ZEPHYR_BIN="${DEEPSPAN_ROOT}/build/firmware/app/zephyr/zephyr.exe"
 
     if [[ $no_build -eq 0 ]]; then

@@ -22,18 +22,40 @@ if [[ -z "$STAGED" ]]; then
     exit 0
 fi
 
-COMPILE_DB="${REPO_ROOT}/build/dev/compile_commands.json"
-if [[ ! -f "$COMPILE_DB" ]]; then
-    echo "[pre-commit] compile_commands.json not found at ${COMPILE_DB}" >&2
+DEFAULT_DB="${REPO_ROOT}/build/dev/compile_commands.json"
+if [[ ! -f "$DEFAULT_DB" ]]; then
+    echo "[pre-commit] compile_commands.json not found at ${DEFAULT_DB}" >&2
     echo "[pre-commit] Run: cmake --preset dev first" >&2
     exit 0
 fi
+
+# Build a list of all available compile databases (dev first, then others).
+ALL_DBS=()
+for db in "${REPO_ROOT}/build/dev/compile_commands.json" \
+          "${REPO_ROOT}"/build/*/compile_commands.json; do
+    [[ -f "$db" ]] && ALL_DBS+=("$db")
+done
 
 FAILED=()
 while IFS= read -r file; do
     abs="${REPO_ROOT}/${file}"
     echo "[pre-commit] clang-tidy: ${file}"
-    if ! clang-tidy -p "$COMPILE_DB" "$abs" 2>/dev/null; then
+
+    # Find the first compile database that knows about this file.
+    db_for_file=""
+    for db in "${ALL_DBS[@]}"; do
+        if grep -qF "\"file\": \"${abs}\"" "$db" 2>/dev/null; then
+            db_for_file="$db"
+            break
+        fi
+    done
+
+    if [[ -z "$db_for_file" ]]; then
+        echo "[pre-commit] skip: ${file} not in any compile_commands.json" >&2
+        continue
+    fi
+
+    if ! clang-tidy -p "$db_for_file" "$abs" 2>/dev/null; then
         FAILED+=("$file")
     fi
 done <<< "$STAGED"

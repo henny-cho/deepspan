@@ -316,11 +316,12 @@ cmd_validate() {
         esac
     done
 
-    # Discover HWIPs
+    # Discover HWIPs (skip _template — no gen/ directory by design)
     local hwips=()
     for hwip_dir in "${HWIP_ROOT}"/*/; do
         local hwip_name
         hwip_name="$(basename "$hwip_dir")"
+        [[ "$hwip_name" == "_template" ]] && continue
         [[ -f "$hwip_dir/hwip.yaml" ]] || continue
         [[ -n "$hwip_filter" && "$hwip_name" != "$hwip_filter" ]] && continue
         hwips+=("$hwip_name")

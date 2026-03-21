@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        preset: [dev, dev-submodule, dev-hwip]
+        preset: [dev, dev-submodule, dev-hwip, dev-crc32]
 
     steps:
       - uses: actions/checkout@v4
@@ -48,14 +48,8 @@ jobs:
         with:
           preset: ${{ matrix.preset }}
 
-      - name: Configure CMake (${{ matrix.preset }})
-        run: cmake --preset ${{ matrix.preset }} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-
-      - name: Build
-        run: cmake --build --preset ${{ matrix.preset }} -j$(nproc)
-
-      - name: Test
-        run: ctest --preset ${{ matrix.preset }} --output-on-failure
+      - name: Build & Test (${{ matrix.preset }})
+        run: ./scripts/dev.sh check --preset ${{ matrix.preset }}
 
       - name: Upload test results
         if: always()

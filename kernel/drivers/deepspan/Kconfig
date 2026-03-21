@@ -21,6 +21,25 @@ config DEEPSPAN_TRANSPORT_HW
     help
       Transport for actual hardware.
 
+config DEEPSPAN_CRC32_SHASH
+    bool "CRC32 hardware shash bridge (Linux Crypto API)"
+    depends on DEEPSPAN
+    select CRYPTO_HASH
+    help
+      Register the Deepspan CRC32 hardware engine as a synchronous hash
+      (shash) algorithm named "crc32-deepspan" with the Linux Crypto API.
+
+      Once registered, existing userspace applications can use the FPGA
+      CRC32 engine via the AF_ALG socket interface (no source changes):
+
+        bind(fd, {AF_ALG, "hash", "crc32-deepspan"});
+
+      Priority 200 — preferred over the generic software CRC32 (100).
+      Follows the same pattern as STM32 (stm32-crc32) and Intel SSE4.2
+      (crc32c-intel) hardware drivers in the upstream kernel.
+
+      If unsure, say Y.
+
 config DEEPSPAN_KUNIT_TEST
     bool "KUnit tests"
     depends on KUNIT

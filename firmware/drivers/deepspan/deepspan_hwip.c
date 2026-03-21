@@ -108,3 +108,22 @@ static int deepspan_hwip_init(const struct device *dev)
         POST_KERNEL, 50, NULL);
 
 DT_INST_FOREACH_STATUS_OKAY(DEEPSPAN_HWIP_INIT)
+
+/*
+ * deepspan_hwip_set_dma — production stub
+ *
+ * In a real implementation this would set up a DMA descriptor to transfer
+ * @src into the CRC32 engine's input buffer via the platform DMA controller.
+ * For the skeleton the host (Linux plugin) does DMA via MMIO registers;
+ * this stub satisfies the API so firmware can call it unconditionally.
+ *
+ * TODO: replace with actual DMA engine / MMIO writes when HW is available.
+ */
+int deepspan_hwip_set_dma(const struct device *dev,
+			  const void *src, uint32_t len)
+{
+	(void)dev;
+	(void)src;
+	(void)len;
+	return -ENOTSUP;
+}
