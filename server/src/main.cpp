@@ -27,10 +27,12 @@
 namespace {
 
 volatile std::sig_atomic_t g_shutdown = 0;
+grpc::Server* g_server = nullptr;  // set before Wait(); read in signal handler
 
 void signal_handler(int sig) {
     spdlog::info("deepspan-server: received signal {}, shutting down", sig);
     g_shutdown = 1;
+    if (g_server) g_server->Shutdown();
 }
 
 void print_usage(const char* argv0) {
@@ -102,10 +104,12 @@ int main(int argc, char** argv) {
     }
     spdlog::info("deepspan-server listening on {}", addr);
 
-    // Block until SIGTERM/SIGINT.
+    // Block until SIGTERM/SIGINT — signal_handler calls Shutdown() to unblock Wait().
+    g_server = server.get();
     std::signal(SIGTERM, signal_handler);
     std::signal(SIGINT,  signal_handler);
     server->Wait();
+    g_server = nullptr;
 
     spdlog::info("deepspan-server stopped");
     return 0;

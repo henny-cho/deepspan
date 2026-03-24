@@ -488,8 +488,17 @@ cmd_test() {
 
     local PIDS=()
     cleanup_test() {
+        trap - EXIT INT TERM   # prevent re-entry on repeated Ctrl-C
         log "shutting down simulation..."
         for pid in "${PIDS[@]}"; do kill "$pid" 2>/dev/null || true; done
+        # Wait up to 5 s for graceful shutdown, then SIGKILL survivors
+        local deadline=$(( $(date +%s) + 5 ))
+        for pid in "${PIDS[@]}"; do
+            while kill -0 "$pid" 2>/dev/null && (( $(date +%s) < deadline )); do
+                sleep 0.2
+            done
+            kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null || true
+        done
         wait 2>/dev/null || true
         # Shared memory is owned and unlinked by the hw-model on exit.
         log "done"
@@ -563,17 +572,32 @@ cmd_test() {
     wait_port "localhost" "${SERVER_PORT}" "${STARTUP_TIMEOUT}"
 
     section "test: SDK full-stack E2E (gRPC)"
-    local HELLO_SCRIPT="${DEEPSPAN_ROOT}/sdk/examples/hello.py"
-    # Ensure gRPC Python stubs are generated before running hello.py
+    # Pick test script and device ID based on which plugin was loaded.
+    local E2E_SCRIPT DEEPSPAN_DEVICE
+    if [[ "${PLUGIN_SO}" == *"/crc32/"* ]]; then
+        E2E_SCRIPT="${DEEPSPAN_ROOT}/sdk/examples/crc32_test.py"
+        DEEPSPAN_DEVICE="crc32/0"
+    else
+        E2E_SCRIPT="${DEEPSPAN_ROOT}/sdk/examples/hello.py"
+        DEEPSPAN_DEVICE="accel/0"
+    fi
+    log "E2E script : ${E2E_SCRIPT}"
+    log "device     : ${DEEPSPAN_DEVICE}"
+
+    # Ensure gRPC Python stubs are generated.
     if command -v uv &>/dev/null; then
         (cd "${DEEPSPAN_ROOT}/sdk" && uv run --with grpcio-tools python scripts/gen_proto.py) \
             || die "Proto stub generation failed"
     fi
     if command -v uv &>/dev/null; then
         (cd "${DEEPSPAN_ROOT}/sdk" && \
-            DEEPSPAN_ADDR="localhost:${SERVER_PORT}" uv run python "${HELLO_SCRIPT}")
+            DEEPSPAN_ADDR="localhost:${SERVER_PORT}" \
+            DEEPSPAN_DEVICE="${DEEPSPAN_DEVICE}" \
+            uv run python "${E2E_SCRIPT}")
     else
-        DEEPSPAN_ADDR="localhost:${SERVER_PORT}" python3 "${HELLO_SCRIPT}"
+        DEEPSPAN_ADDR="localhost:${SERVER_PORT}" \
+        DEEPSPAN_DEVICE="${DEEPSPAN_DEVICE}" \
+        python3 "${E2E_SCRIPT}"
     fi
 
     echo ""

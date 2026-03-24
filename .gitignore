@@ -1,3 +1,7 @@
+.claude/
+.agents/
+.docs/
+
 # Build outputs
 build/
 dist/
