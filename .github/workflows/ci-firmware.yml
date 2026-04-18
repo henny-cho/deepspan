@@ -6,14 +6,14 @@ on:
   push:
     branches: [main]
     paths:
-      - 'l2/firmware/**'
+      - 'firmware/**'
       - 'hwip/accel/firmware/**'
       - 'west.yml'
       - '.github/workflows/ci-firmware.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'l2/firmware/**'
+      - 'firmware/**'
       - 'hwip/accel/firmware/**'
       - 'west.yml'
 
@@ -46,14 +46,14 @@ jobs:
       - name: Build firmware (native_sim/native/64)
         working-directory: deepspan
         run: |
-          west build -b native_sim/native/64 l2/firmware/app \
+          west build -b native_sim/native/64 firmware/app \
             -- -DCONFIG_ASSERT=y -DCONFIG_LOG=y \
-               -DZEPHYR_EXTRA_MODULES=$(pwd)/l2/firmware
+               -DZEPHYR_EXTRA_MODULES=$(pwd)/firmware
 
       - name: Run Ztest (native_sim)
         working-directory: deepspan
         run: |
-          west twister -T l2/firmware/tests \
+          west twister -T firmware/tests \
             --platform native_sim/native/64 \
             --inline-logs \
             -v

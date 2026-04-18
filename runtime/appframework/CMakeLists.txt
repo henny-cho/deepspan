@@ -9,7 +9,7 @@ option(DEEPSPAN_BUILD_TESTS "Build tests" OFF)
 
 # userlib dependency
 if(NOT TARGET deepspan-userlib)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../userlib ${CMAKE_CURRENT_BINARY_DI../userlib)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../userlib ${CMAKE_CURRENT_BINARY_DIR}/userlib)
 endif()
 
 add_library(deepspan-appframework STATIC

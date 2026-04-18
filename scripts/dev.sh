@@ -448,7 +448,7 @@ cmd_lint() {
             warn "${rel} — clang-tidy issues found"
         fi
     done < <(find "${DEEPSPAN_ROOT}/server" "${DEEPSPAN_ROOT}/runtime" "${DEEPSPAN_ROOT}/sim" \
-                  -name "*.cpp" -o -name "*.hpp" -print0 2>/dev/null)
+                  \( -name "*.cpp" -o -name "*.hpp" \) -print0 2>/dev/null)
 
     if [[ $fail_count -gt 0 ]]; then
         if [[ $strict -eq 1 ]]; then

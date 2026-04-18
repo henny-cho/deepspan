@@ -12,7 +12,7 @@ find_package(Protobuf REQUIRED)
 
 # ── Proto stub generation ─────────────────────────────────────────────────────
 set(PROTO_SRC_DIR "${CMAKE_SOURCE_DIR}/api/proto")
-file(GLOB_RECURSE PROTO_FILES "${PROTO_SRC_DIR}/*.proto")
+file(GLOB_RECURSE PROTO_FILES CONFIGURE_DEPENDS "${PROTO_SRC_DIR}/*.proto")
 
 get_target_property(GRPC_CPP_PLUGIN_EXE gRPC::grpc_cpp_plugin LOCATION)
 

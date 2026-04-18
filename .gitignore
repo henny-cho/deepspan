@@ -14,14 +14,6 @@ cmake_install.cmake
 compile_commands.json
 _deps/
 
-# Go
-bin/
-*.test
-vendor/
-# Go compiled binaries (go build output in module roots)
-mgmt-daemon/mgmt-daemon
-server/server
-
 # Python
 __pycache__/
 *.pyc
@@ -29,9 +21,6 @@ __pycache__/
 .venv/
 .uv/
 *.whl
-
-# Proto generated output — run ./scripts/codegen.sh to regenerate
-gen/python/
 
 # Build logs
 *.log
