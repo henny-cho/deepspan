@@ -2,38 +2,45 @@
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "release-type": "simple",
   "packages": {
-    "deepspan/hw-model": {
+    "sim/hw-model": {
       "component": "hw-model",
       "release-type": "simple",
       "changelog-path": "CHANGELOG.md"
     },
-    "deepspan/firmware": {
+    "firmware": {
       "component": "firmware",
-      "release-type": "simple"
+      "release-type": "simple",
+      "changelog-path": "CHANGELOG.md"
     },
-    "deepspan/kernel": {
+    "kernel": {
       "component": "kernel",
-      "release-type": "simple"
+      "release-type": "simple",
+      "changelog-path": "CHANGELOG.md"
     },
-    "deepspan/userlib": {
+    "runtime/userlib": {
       "component": "userlib",
-      "release-type": "simple"
+      "release-type": "simple",
+      "changelog-path": "CHANGELOG.md"
     },
-    "deepspan/appframework": {
+    "runtime/appframework": {
       "component": "appframework",
-      "release-type": "simple"
+      "release-type": "simple",
+      "changelog-path": "CHANGELOG.md"
     },
-    "deepspan/mgmt-daemon": {
-      "component": "mgmt-daemon",
-      "release-type": "go"
-    },
-    "deepspan/server": {
+    "server": {
       "component": "server",
-      "release-type": "go"
+      "release-type": "simple",
+      "changelog-path": "CHANGELOG.md"
     },
-    "deepspan/sdk": {
+    "sdk": {
       "component": "sdk",
-      "release-type": "python"
+      "release-type": "python",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "codegen": {
+      "component": "codegen",
+      "release-type": "python",
+      "changelog-path": "CHANGELOG.md"
     }
   },
   "separate-pull-requests": true,
