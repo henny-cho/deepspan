@@ -75,3 +75,38 @@ jobs:
           name: cpp-test-results-${{ matrix.preset }}
           path: build/${{ matrix.preset }}/Testing/
           if-no-files-found: ignore
+
+  sanitizers:
+    name: Sanitizers (ASan + UBSan)
+    runs-on: ubuntu-24.04
+    # Initial rollout: surface failures but do not gate merges until
+    # pre-existing sanitizer issues are triaged. Flip to false once
+    # the suite is green.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: ./.github/actions/setup-cpp-build
+        with:
+          preset: asan-ubsan
+
+      - name: Configure & build
+        run: |
+          cmake --preset asan-ubsan
+          cmake --build build/asan-ubsan -j"$(nproc)"
+
+      - name: Run tests under ASan+UBSan
+        env:
+          ASAN_OPTIONS:  "detect_leaks=1:abort_on_error=1:halt_on_error=1:strict_string_checks=1"
+          UBSAN_OPTIONS: "halt_on_error=1:print_stacktrace=1"
+        run: ctest --preset asan-ubsan
+
+      - name: Upload sanitizer test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpp-test-results-asan-ubsan
+          path: build/asan-ubsan/Testing/
+          if-no-files-found: ignore

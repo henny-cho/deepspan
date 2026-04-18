@@ -108,6 +108,18 @@
         "DEEPSPAN_BUILD_SERVER": "ON",
         "HWIP_TYPES": "crc32"
       }
+    },
+    {
+      "name": "asan-ubsan",
+      "inherits": "dev",
+      "displayName": "Sanitizers (ASan + UBSan)",
+      "description": "Debug + tests with -fsanitize=address,undefined; halts on first error",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all",
+        "CMAKE_C_FLAGS":   "-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all",
+        "CMAKE_EXE_LINKER_FLAGS":    "-fsanitize=address,undefined",
+        "CMAKE_SHARED_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
     }
   ],
   "buildPresets": [
@@ -118,7 +130,8 @@
     { "name": "coverage",       "configurePreset": "coverage" },
     { "name": "dev-hwip",       "configurePreset": "dev-hwip" },
     { "name": "dev-multi-hwip", "configurePreset": "dev-multi-hwip" },
-    { "name": "dev-crc32",      "configurePreset": "dev-crc32" }
+    { "name": "dev-crc32",      "configurePreset": "dev-crc32" },
+    { "name": "asan-ubsan",     "configurePreset": "asan-ubsan" }
   ],
   "testPresets": [
     {
@@ -155,6 +168,16 @@
       "configurePreset": "dev-crc32",
       "output": { "outputOnFailure": true },
       "execution": { "jobs": 4 }
+    },
+    {
+      "name": "asan-ubsan",
+      "configurePreset": "asan-ubsan",
+      "output": { "outputOnFailure": true },
+      "execution": { "jobs": 1 },
+      "environment": {
+        "ASAN_OPTIONS":  "detect_leaks=1:abort_on_error=1:halt_on_error=1:strict_string_checks=1",
+        "UBSAN_OPTIONS": "halt_on_error=1:print_stacktrace=1"
+      }
     }
   ]
 }
