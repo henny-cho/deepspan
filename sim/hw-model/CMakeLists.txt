@@ -20,7 +20,7 @@ target_include_directories(deepspan_hw_model
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-target_compile_features(deepspan_hw_model PUBLIC cxx_std_17)
+target_compile_features(deepspan_hw_model PUBLIC cxx_std_20)
 
 target_compile_options(deepspan_hw_model PRIVATE
     -Wall -Wextra -Wpedantic

@@ -69,12 +69,28 @@ endif()
 
 if(DEEPSPAN_BUILD_KERNEL)
     include(ExternalProject)
+    # KVER env var overrides; otherwise use the running kernel (uname -r).
+    if(DEFINED ENV{KVER})
+        set(_DEEPSPAN_KVER "$ENV{KVER}")
+    else()
+        execute_process(
+            COMMAND uname -r
+            OUTPUT_VARIABLE _DEEPSPAN_KVER
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+    endif()
+    if(NOT _DEEPSPAN_KVER)
+        message(FATAL_ERROR
+            "DEEPSPAN_BUILD_KERNEL=ON but kernel version could not be determined. "
+            "Set KVER=<version> (with /lib/modules/<KVER>/build present).")
+    endif()
+    message(STATUS "deepspan-kernel: building against kernel ${_DEEPSPAN_KVER}")
     ExternalProject_Add(deepspan-kernel
         SOURCE_DIR  ${CMAKE_SOURCE_DIR}/kernel
         BINARY_DIR  ${CMAKE_BINARY_DIR}/kernel
         CONFIGURE_COMMAND ""
         BUILD_COMMAND
-            $(MAKE) -C /lib/modules/$ENV{KVER}/build
+            $(MAKE) -C /lib/modules/${_DEEPSPAN_KVER}/build
             M=${CMAKE_SOURCE_DIR}/kernel/drivers/deepspan
             modules
             CONFIG_DEEPSPAN_TRANSPORT_SIM=y
@@ -85,12 +101,18 @@ endif()
 
 if(DEEPSPAN_BUILD_HWIP)
     include(cmake/hwip-plugin.cmake)
-    # Support comma-separated HWIP_TYPES list or legacy single HWIP_TYPE.
-    if(HWIP_TYPES AND NOT HWIP_TYPES STREQUAL "accel")
-        string(REPLACE "," ";" _hwip_list "${HWIP_TYPES}")
-    else()
-        set(_hwip_list "${HWIP_TYPE}")
+    # HWIP_TYPES is the canonical var (comma-separated list).
+    # HWIP_TYPE is the legacy single-value alias — warn if the user set
+    # it to anything other than the default "accel" while HWIP_TYPES is
+    # still at its default.
+    if(NOT HWIP_TYPE STREQUAL "accel" AND HWIP_TYPES STREQUAL "accel")
+        message(DEPRECATION
+            "HWIP_TYPE=${HWIP_TYPE} is deprecated and will be removed in a "
+            "future release. Use HWIP_TYPES=${HWIP_TYPE} instead "
+            "(comma-separated, multi-value).")
+        set(HWIP_TYPES "${HWIP_TYPE}")
     endif()
+    string(REPLACE "," ";" _hwip_list "${HWIP_TYPES}")
     foreach(_hwip IN LISTS _hwip_list)
         if(EXISTS "${CMAKE_SOURCE_DIR}/hwip/${_hwip}/CMakeLists.txt")
             add_subdirectory("hwip/${_hwip}")
