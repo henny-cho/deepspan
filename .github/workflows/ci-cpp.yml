@@ -58,6 +58,16 @@ jobs:
       - name: Build & Test (${{ matrix.preset }})
         run: ./scripts/dev.sh check --preset ${{ matrix.preset }}
 
+      - name: Install clang-tidy (dev-hwip only)
+        if: matrix.preset == 'dev-hwip'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends clang-tidy
+
+      - name: Run clang-tidy (dev-hwip only)
+        if: matrix.preset == 'dev-hwip'
+        run: ./scripts/dev.sh lint --strict --preset dev-hwip
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
