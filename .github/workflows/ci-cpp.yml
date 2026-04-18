@@ -37,6 +37,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Opt in to Node.js 24 until third-party actions (checkout, upload-artifact,
+# ccache-action) bump their runtime. Node 20 is removed 2026-09-16.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-and-test:
     name: Build & Test (${{ matrix.preset }})
@@ -79,10 +84,6 @@ jobs:
   sanitizers:
     name: Sanitizers (ASan + UBSan)
     runs-on: ubuntu-24.04
-    # Initial rollout: surface failures but do not gate merges until
-    # pre-existing sanitizer issues are triaged. Flip to false once
-    # the suite is green.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
