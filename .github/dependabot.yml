@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: Apache-2.0
+# Dependabot configuration for the deepspan monorepo.
+#
+# Scope:
+#   - github-actions — third-party actions used in .github/workflows/
+#   - pip — sdk/ and codegen/ Python packages
+#
+# CMake C++ deps live in apt (system packages) or git submodules; neither
+# is covered by Dependabot, so CMakeLists.txt changes are not tracked here.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+      include: scope
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: pip
+    directory: /sdk
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(sdk)"
+      include: scope
+
+  - package-ecosystem: pip
+    directory: /codegen
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(codegen)"
+      include: scope
