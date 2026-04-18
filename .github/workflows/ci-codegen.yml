@@ -17,6 +17,13 @@ on:
       - 'codegen/**'
       - 'hwip/**/hwip.yaml'
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     name: Test deepspan-codegen (Python ${{ matrix.python-version }})

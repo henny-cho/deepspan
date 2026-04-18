@@ -6,11 +6,24 @@ on:
     branches: [main]
     paths:
       - 'sdk/**'
+      - 'api/proto/**'
+      - 'codegen/**'
+      - 'hwip/**/hwip.yaml'
       - '.github/workflows/ci-python.yml'
   pull_request:
     branches: [main]
     paths:
       - 'sdk/**'
+      - 'api/proto/**'
+      - 'codegen/**'
+      - 'hwip/**/hwip.yaml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
