@@ -26,6 +26,11 @@ source "${SCRIPT_DIR}/lib.sh"
 ds_setup_path
 DS_LOG_PREFIX="[dev]"
 
+# Canonical default preset — every sub-command falls back to this so
+# that `dev.sh build` → `dev.sh test` works without a --preset flag.
+# Override via the DEEPSPAN_DEFAULT_PRESET env var.
+: "${DEEPSPAN_DEFAULT_PRESET:=dev-hwip}"
+
 COMMAND="${1:-}"
 shift || true
 
@@ -52,21 +57,22 @@ Lifecycle commands:
 
   build     [--preset PRESET]
               Build via CMake (single command: cmake --preset + cmake --build).
-              --preset PRESET  CMake preset (default: dev)
+              --preset PRESET  CMake preset (default: $DEEPSPAN_DEFAULT_PRESET or dev-hwip)
 
   build clean  [--preset PRESET] [--all]
               Remove CMake build directory.
-              --preset PRESET  CMake preset (default: dev)
+              --preset PRESET  CMake preset (default: $DEEPSPAN_DEFAULT_PRESET or dev-hwip)
               --all            Remove all build/ subdirectories
 
-  lint      [--strict]
+  lint      [--strict] [--preset PRESET]
               Run clang-tidy on all C++ source files.
               --strict       Exit 1 on any lint warning (default: warn only)
+              --preset PRESET  CMake preset (default: $DEEPSPAN_DEFAULT_PRESET or dev-hwip)
 
   test      [--no-build] [--preset PRESET]
               Full-stack simulation: hw-model → server → SDK hello-world.
               --no-build     Skip build; use existing binaries
-              --preset PRESET  CMake preset (default: dev)
+              --preset PRESET  CMake preset (default: $DEEPSPAN_DEFAULT_PRESET or dev-hwip)
 
   validate  [--hwip TYPE] [--fix] [--skip-syntax]
               Run validation checks on generated HWIP artifacts.
@@ -76,8 +82,14 @@ Lifecycle commands:
 
   check     [--preset PRESET]
               Full CI gate: build → lint → test → validate.
+              --preset PRESET  CMake preset (default: $DEEPSPAN_DEFAULT_PRESET or dev-hwip)
 
   help      Show this help and exit.
+
+Environment:
+  DEEPSPAN_DEFAULT_PRESET    Override the default CMake preset for every
+                             sub-command that takes --preset (default:
+                             dev-hwip — widest C++ surface with HWIP plugins).
 EOF
     exit "${1:-0}"
 }
@@ -340,7 +352,7 @@ cmd_gen() {
 # build clean
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_build_clean() {
-    local preset="dev" clean_all=0
+    local preset="${DEEPSPAN_DEFAULT_PRESET}" clean_all=0
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -382,7 +394,7 @@ cmd_build() {
         return
     fi
 
-    local preset="dev" force_clean=0
+    local preset="${DEEPSPAN_DEFAULT_PRESET}" force_clean=0
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --preset) preset="$2"; shift 2 ;;
@@ -417,7 +429,7 @@ cmd_build() {
 # lint
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_lint() {
-    local strict=0 preset="dev"
+    local strict=0 preset="${DEEPSPAN_DEFAULT_PRESET}"
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -465,7 +477,7 @@ cmd_lint() {
 # test
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_test() {
-    local no_build=0 preset="dev-hwip"
+    local no_build=0 preset="${DEEPSPAN_DEFAULT_PRESET}"
     local SERVER_ADDR="${SERVER_ADDR:-0.0.0.0:8080}"
     local STARTUP_TIMEOUT=15
 
@@ -621,7 +633,7 @@ cmd_validate() {
 # check  (full CI gate)
 # ══════════════════════════════════════════════════════════════════════════════
 cmd_check() {
-    local preset="dev"
+    local preset="${DEEPSPAN_DEFAULT_PRESET}"
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --preset) preset="$2"; shift 2 ;;

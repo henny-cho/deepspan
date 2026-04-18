@@ -103,7 +103,9 @@ parse_layers_args() {
 # ── Port readiness check ──────────────────────────────────────────────────────
 # Usage: wait_port HOST PORT [TIMEOUT_S=30] [HTTP_PATH=/healthz]
 #   or:  wait_port :PORT [TIMEOUT_S=30]        (localhost assumed)
-# Tries HTTP curl first; falls back to /dev/tcp for non-HTTP services.
+# Checks /dev/tcp first (TCP accept is sufficient for gRPC and other
+# non-HTTP services); falls back to HTTP /healthz for services that
+# expose it. TCP-first avoids spawning a curl per poll iteration.
 wait_port() {
     local arg1="$1"
     local timeout="${3:-30}"
@@ -122,10 +124,10 @@ wait_port() {
 
     local deadline=$((SECONDS + timeout))
     while [[ $SECONDS -lt $deadline ]]; do
-        if curl -sf "http://${host}:${port}${http_path}" >/dev/null 2>&1; then
+        if (</dev/tcp/"$host"/"$port") 2>/dev/null; then
             return 0
         fi
-        if (</dev/tcp/"$host"/"$port") 2>/dev/null; then
+        if curl -sf "http://${host}:${port}${http_path}" >/dev/null 2>&1; then
             return 0
         fi
         sleep 0.3
