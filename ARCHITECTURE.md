@@ -8,7 +8,7 @@
 
 ```
   [Python SDK]              sdk/
-       │ gRPC (binary, port 50051)
+       │ gRPC (binary, port 8080)
   [C++20 gRPC Server]       server/
        │ dlopen
   [HWIP plugin]             hwip/accel/plugin/  · Submitter 인터페이스
@@ -30,7 +30,7 @@
 |----------|---------|------|------|
 | Zephyr 펌웨어 | `firmware/` | C + Zephyr | 디바이스 사이드 ETL FSM, VirtIO transport |
 | Linux 커널 드라이버 | `kernel/` | C (Linux) | 호스트 사이드 virtio 마스터 드라이버, io_uring URING_CMD |
-| MMIO 시뮬레이터 | `sim/hw-model/` | C++17 | FPGA MMIO 시뮬레이터 — firmware + kernel 전체를 대체 |
+| MMIO 시뮬레이터 | `sim/hw-model/` | C++20 | FPGA MMIO 시뮬레이터 — firmware + kernel 전체를 대체 |
 | C++ userlib | `runtime/userlib/` | C++20 | ioctl / mmap / io_uring 래퍼 (실 HW 경로) |
 | C++ appframework | `runtime/appframework/` | C++20 | DevicePool, CircuitBreaker, SessionManager |
 | gRPC 서버 | `server/` | C++20 | HwipService · ManagementService · TelemetryService |
@@ -66,7 +66,7 @@ server/ (C++20)
     │ dlopen libhwip_accel.so
 hwip/accel/plugin/ AccelPlugin
     │ POSIX shm_open("/deepspan_hwip_N") + atomic CTRL.START polling
-sim/hw-model/ (C++17)       ← firmware + kernel 역할 전담
+sim/hw-model/ (C++20)       ← firmware + kernel 역할 전담
     │ 메모리 내 MMIO 레지스터 시뮬레이션 (100 µs poll loop)
 hwip/accel/hw-model/ accel opcode 핸들러
 ```
@@ -144,7 +144,7 @@ hwip/accel/hwip.yaml
     ▼ deepspan-codegen (codegen/)
     ├── gen/kernel/deepspan_accel.h         C (커널 · 펌웨어 공용)
     ├── gen/firmware/deepspan_accel/        Zephyr opcode dispatch
-    ├── gen/sim/deepspan_accel/ops.hpp      C++17 hw-model 열거형 + RegOffsets
+    ├── gen/sim/deepspan_accel/ops.hpp      C++20 hw-model 열거형 + RegOffsets
     ├── gen/rpc/accel.hpp                   C++20 RPC opcode 매핑
     ├── gen/proto/deepspan_accel/v1/        Protobuf 서비스 정의
     └── gen/sdk/deepspan_accel/models.py    Python Pydantic v2 모델
@@ -176,7 +176,7 @@ vi hwip/crypto/plugin/crypto_plugin.cpp
 
 # 5. CMakePresets.json에 preset 추가
 #   { "name": "dev-crypto", "inherits": "dev",
-#     "cacheVariables": { "DEEPSPAN_BUILD_HWIP": "ON", "HWIP_TYPE": "crypto" } }
+#     "cacheVariables": { "DEEPSPAN_BUILD_HWIP": "ON", "HWIP_TYPES": "crypto" } }
 ```
 
 ---
@@ -189,19 +189,23 @@ CMakeLists.txt (루트)
 ├── runtime/userlib/       — io_uring 래퍼
 ├── runtime/appframework/  — DevicePool · CircuitBreaker
 ├── server/                — C++20 gRPC 서버 (deepspan-server)
-└── hwip/${HWIP_TYPE}/     — DEEPSPAN_BUILD_HWIP=ON 시 추가
+└── hwip/${type}/          — HWIP_TYPES에 포함된 각 type마다 추가 (DEEPSPAN_BUILD_HWIP=ON)
     └── hwip/accel/        — hw-model ops + plugin .so + E2E tests
 ```
 
 | Preset | 설명 |
 |--------|------|
-| `dev` | userspace C++ 전체, 테스트 ON |
-| `dev-hwip` | dev + HWIP accel C++ 플러그인 |
-| `sim` | 시뮬레이션 최적화 |
-| `release` | 최적화, 테스트 OFF |
+| `dev` | userspace C++ 전체, 테스트 ON — HWIP 없음 |
+| `dev-submodule` | `dev` + third_party를 git submodule로 참조 |
+| `dev-hwip` | `dev` + HWIP accel 플러그인 — **기본값** (`DEEPSPAN_DEFAULT_PRESET`) |
+| `dev-multi-hwip` | `dev` + 복수 HWIP (`HWIP_TYPES=accel,codec`) |
+| `dev-crc32` | `dev` + CRC32 HWIP (`HWIP_TYPES=crc32`) |
+| `asan-ubsan` | Debug + `-fsanitize=address,undefined`, halt on first error |
+| `sim` | 시뮬레이션 최적화 (firmware 포함) |
+| `release` | 최적화, 테스트 OFF, install 활성화 |
 | `arm64-cross` | ARM64 크로스 컴파일 |
 | `coverage` | gcov 커버리지 |
 
 ---
 
-> 최종 업데이트: 2026-03-21 — C++20 마이그레이션 완료 (Go→C++, l*-prefix→semantic 디렉토리, gRPC 서버)
+> 최종 업데이트: 2026-04-18 — C++20 통일 (hw-model 포함), ASan+UBSan preset 도입, `HWIP_TYPE` → `HWIP_TYPES` 마이그레이션, 포트 `8080` 기준.

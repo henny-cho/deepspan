@@ -19,7 +19,7 @@ flowchart TB
     FW["Zephyr Firmware\ndeepspan_hwip driver"]
     HW[("FPGA / ASIC")]
 
-    SDK      -->|"Protobuf gRPC\nport 50051"| PROTO
+    SDK      -->|"Protobuf gRPC\nport 8080"| PROTO
     PROTO    <-->|"SessionManager\nDevicePool"| APPFW
     PROTO    -->|"dlopen\nSubmitter interface"| PLUGIN
     APPFW    <-->|"DeepspanDevice\nAsyncClient"| USERLIB
@@ -293,7 +293,7 @@ gRPC 클라이언트 래퍼. 설치: `pip install deepspan-sdk`
 ### `DeepspanClient` (`deepspan.client`)
 
 ```python
-with DeepspanClient("localhost:50051") as client:
+with DeepspanClient("localhost:8080") as client:
     devices = client.list_devices()
     result  = client.submit_request("accel/0", opcode=0x0001, data=b"hello")
 ```
@@ -367,4 +367,4 @@ HWIP 플러그인은 **minor** 버전 범위로 고정 권장:
 
 ---
 
-*최종 업데이트: 2026-03-22 — CRC32 HWIP 추가, 레이어별 재구성*
+*최종 업데이트: 2026-04-18 — gRPC 포트 8080 확정, HWIP_TYPE 단일 변수 deprecation, C++20 전체 통일*

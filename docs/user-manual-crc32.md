@@ -26,14 +26,19 @@ Python SDK  ──gRPC──►  deepspan-server  ──dlopen──►  libhwip
 ## Prerequisites
 
 ```bash
-# Build tools
-sudo apt install cmake ninja-build clang clang-tidy python3-pip gdb
+# Full automated setup (recommended)
+./scripts/dev.sh setup --hooks --lint-tools
+
+# Or manually:
+sudo apt install -y cmake ninja-build gcc g++ clang-tidy ccache python3-pip gdb \
+     libgrpc++-dev libprotobuf-dev protobuf-compiler-grpc \
+     libspdlog-dev liburing-dev libgtest-dev
 
 # Python tools (SDK)
 pip install uv          # or: pip install grpcio grpcio-tools
 
 # Optional — Zephyr firmware sim
-pip install west        # then run: west init -l . && west update
+pipx install west        # then run: west init -l . && west update
 ```
 
 ---
@@ -45,6 +50,11 @@ cd /path/to/deepspan
 
 # Configure + build the CRC32 stack
 ./scripts/dev.sh build --preset dev-crc32
+
+# Optional: set DEEPSPAN_DEFAULT_PRESET=dev-crc32 to make every dev.sh
+# sub-command (build, test, lint, check) default to the CRC32 preset.
+export DEEPSPAN_DEFAULT_PRESET=dev-crc32
+./scripts/dev.sh build    # now implicitly builds dev-crc32
 ```
 
 This configures with `DEEPSPAN_BUILD_HWIP=ON HWIP_TYPES=crc32` and builds to `build/dev-crc32/`.

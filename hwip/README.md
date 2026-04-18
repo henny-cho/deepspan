@@ -19,7 +19,7 @@ deepspan/hwip/
 │   ├── gen/            자동 생성 아티팩트 (커밋됨)
 │   │   ├── kernel/     C 커널/펌웨어 헤더 (deepspan_accel.h)
 │   │   ├── firmware/   Zephyr dispatch 헤더
-│   │   ├── sim/        C++17 hw-model ops (ops.hpp)
+│   │   ├── sim/        C++20 hw-model ops (ops.hpp)
 │   │   ├── rpc/        C++ RPC opcodes (accel.hpp)
 │   │   ├── proto/      Protobuf 정의 (device.proto)
 │   │   └── sdk/        Python Pydantic 모델 (models.py)
@@ -39,14 +39,17 @@ cd deepspan
 # 환경 설정 (Python venv + deepspan-codegen)
 uv sync
 
-# 코드 생성
-source .venv/bin/activate
-python -m deepspan_codegen -d hwip/accel/hwip.yaml -o hwip/accel/gen
+# 코드 생성 (모든 HWIP 대상)
+./scripts/dev.sh gen
+# 또는 단일 HWIP
+./scripts/dev.sh gen --hwip accel
 
-# C++ 빌드 (hw-model + server + plugin)
-cmake --preset dev
-cmake --build --preset dev -j$(nproc)
-ctest --preset dev
+# HWIP 플러그인 포함 C++ 빌드 (hw-model + server + plugin)
+./scripts/dev.sh build --preset dev-hwip
+ctest --preset dev-hwip
+
+# 또는 HWIP 전용 CLI로 풀 스택 검증
+./hwip/scripts/hwip.sh check
 ```
 
 ---
@@ -89,19 +92,24 @@ hwip.yaml
     ▼ deepspan-codegen (Python, uv run)
     ├── gen/kernel/deepspan_accel.h              C (kernel · firmware)
     ├── gen/firmware/deepspan_accel/dispatch.h   Zephyr
-    ├── gen/sim/deepspan_accel/ops.hpp           C++17 hw-model
+    ├── gen/sim/deepspan_accel/ops.hpp           C++20 hw-model
     ├── gen/rpc/accel.hpp                        C++ RPC opcodes
     ├── gen/proto/deepspan_accel/v1/device.proto Protobuf
     └── gen/sdk/deepspan_accel/models.py         Python (Pydantic v2)
 ```
 
 ```bash
-# 재생성
-source .venv/bin/activate
-python -m deepspan_codegen -d hwip/accel/hwip.yaml -o hwip/accel/gen
+# 재생성 (권장: dev.sh 경유)
+./scripts/dev.sh gen --hwip accel
 
-# 특정 타겟만
-python -m deepspan_codegen -d hwip/accel/hwip.yaml -o hwip/accel/gen --target python
+# 또는 직접 호출
+uv run deepspan-codegen --descriptor hwip/accel/hwip.yaml --out hwip/accel/gen
+
+# 특정 레이어만
+uv run deepspan-codegen --descriptor hwip/accel/hwip.yaml --out hwip/accel/gen --target sdk
+
+# CI용 stale 검사 (재생성하지 않고 diff만 확인)
+./scripts/dev.sh gen --check
 ```
 
 ---
@@ -109,30 +117,41 @@ python -m deepspan_codegen -d hwip/accel/hwip.yaml -o hwip/accel/gen --target py
 ## 신규 HWIP 추가
 
 ```bash
-# 1. accel을 템플릿으로 복사
-cp -r hwip/accel/ hwip/crypto/
+# 1. _template을 기반으로 복사 (또는 accel을 참고)
+cp -r hwip/_template/ hwip/crypto/
 
 # 2. hwip.yaml 수정 (레지스터 맵, opcode)
 vi hwip/crypto/hwip.yaml
 
 # 3. 코드 생성
-python -m deepspan_codegen -d hwip/crypto/hwip.yaml -o hwip/crypto/gen
+./scripts/dev.sh gen --hwip crypto
 
 # 4. C++ AccelPlugin을 참고해 CryptoPlugin 구현
 vi hwip/crypto/plugin/crypto_plugin.cpp
 
 # 5. CMakePresets.json에 preset 추가
+#    { "name": "dev-crypto", "inherits": "dev",
+#      "cacheVariables": {
+#        "DEEPSPAN_BUILD_HWIP": "ON",
+#        "DEEPSPAN_BUILD_SERVER": "ON",
+#        "HWIP_TYPES": "crypto"
+#      } }
+
+# 6. 빌드 + 검증
+./scripts/dev.sh build --preset dev-crypto
+./hwip/scripts/hwip.sh validate --hwip crypto
 ```
 
 ---
 
-## validate 체크 목록
+## validate 체크 목록 (`./hwip/scripts/hwip.sh validate`)
 
 | # | 체크 | 도구 |
 |---|---|---|
-| 1 | gen/ stale 감지 | deepspan-codegen --dry-run + diff |
+| 1 | gen/ stale 감지 | deepspan-codegen 재실행 + diff |
 | 2 | C 커널 헤더 문법 | `gcc -fsyntax-only -std=gnu11` |
-| 3 | C++ hw_model 헤더 문법 | `g++ -fsyntax-only -std=c++17` |
+| 3 | C++20 gen/sim + gen/rpc 헤더 문법 | `g++ -fsyntax-only -std=c++20` |
 | 4 | Python 문법 | `python3 -m py_compile` |
-| 5 | Proto lint | `buf lint` |
-| 6 | codegen 단위 테스트 | `pytest codegen/tests/ -q` |
+| 5 | Proto lint | `buf lint` (설치 시) |
+
+codegen 단위 테스트(`pytest`)는 별도로 `ci-codegen.yml`에서 실행합니다.

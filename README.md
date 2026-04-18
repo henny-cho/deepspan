@@ -28,7 +28,7 @@
 |----------|---------|------|------|
 | Zephyr 펌웨어 | `firmware/` | C + Zephyr | ETL FSM · VirtIO transport · native_sim |
 | Linux 커널 드라이버 | `kernel/` | C (Linux) | virtio master 드라이버 · io_uring · 다중 디바이스 |
-| MMIO 시뮬레이터 | `sim/hw-model/` | C++17 | FPGA 레지스터 MMIO 시뮬레이터 (firmware + kernel 대체) |
+| MMIO 시뮬레이터 | `sim/hw-model/` | C++20 | FPGA 레지스터 MMIO 시뮬레이터 (firmware + kernel 대체) |
 | C++ userlib | `runtime/userlib/` | C++20 | ioctl / mmap / io_uring 래퍼 |
 | C++ appframework | `runtime/appframework/` | C++20 | DevicePool · CircuitBreaker · SessionManager |
 | gRPC 서버 | `server/` | C++20 | gRPC 서버 · Protobuf · dlopen 플러그인 로더 |
@@ -44,25 +44,33 @@
 ### 사전 요구사항
 
 ```bash
-sudo apt install -y cmake ninja-build gcc g++ python3 python3-pip \
+sudo apt install -y cmake ninja-build gcc g++ python3 python3-pip pipx \
      libgrpc++-dev libprotobuf-dev protobuf-compiler-grpc \
-     libspdlog-dev libgtest-dev
-pip3 install --user west
+     libspdlog-dev liburing-dev libgtest-dev \
+     clang-tidy ccache
+pipx install west
+```
+
+또는 한 번에:
+
+```bash
+./scripts/dev.sh setup --hooks --lint-tools
 ```
 
 ### 1. 빌드
 
 ```bash
-# C++ 전체 (hw-model, server, userlib, appframework)
-cmake --preset dev
-cmake --build --preset dev -j$(nproc)
-ctest --preset dev
+# 기본 preset (dev-hwip: userspace + HWIP accel plugin + server)
+./scripts/dev.sh build
+./scripts/dev.sh test              # 풀스택 시뮬레이션 + SDK E2E
 
-# + HWIP accel 플러그인
+# 또는 cmake 직접
 cmake --preset dev-hwip
 cmake --build --preset dev-hwip -j$(nproc)
 ctest --preset dev-hwip
 ```
+
+`DEEPSPAN_DEFAULT_PRESET` 환경 변수로 모든 서브커맨드의 기본 preset을 일괄 변경할 수 있습니다. 예: `export DEEPSPAN_DEFAULT_PRESET=dev` → HWIP 없는 빠른 빌드.
 
 ### 2. 시뮬레이션 실행 (Sim 경로)
 
@@ -72,12 +80,13 @@ build/dev-hwip/sim/hw-model/deepspan-hw-model &
 
 # 2. gRPC 서버 실행 (플러그인 로드)
 build/dev-hwip/server/deepspan-server \
+  --addr 0.0.0.0:8080 \
   --hwip-plugin build/dev-hwip/hwip/accel/plugin/libhwip_accel.so &
 
 # 3. Python SDK로 검증
 cd sdk && uv run python -c "
 from deepspan import DeepspanClient
-c = DeepspanClient('localhost:50051')
+c = DeepspanClient('localhost:8080')
 print(c.list_devices())          # [DeviceInfo(id='accel/0', state=READY)]
 rid = c.submit_request('accel/0', opcode=0x0001)
 print(rid)                       # SubmitResult with ECHO response
@@ -122,11 +131,11 @@ deepspan/
 │       └── tests/          E2E 통합 테스트
 ├── api/proto/          Protobuf 서비스 정의
 ├── codegen/            deepspan-codegen (Python · pytest TDD)
-├── scripts/            빌드·검증·시뮬레이션 스크립트
-├── third_party/        googletest, spdlog
+├── scripts/            `dev.sh` · `lib.sh` · `tmux-crc32.sh`
+├── third_party/        googletest, spdlog, etl, nlohmann_json, tl-expected
 ├── CMakeLists.txt
-├── CMakePresets.json   dev, dev-hwip, release, ...
-└── west.yml            Zephyr West 매니페스트
+├── CMakePresets.json   dev, dev-hwip, dev-crc32, asan-ubsan, release, ...
+└── west.yml            Zephyr West 매니페스트 (zephyr, etl, openamp, ...)
 ```
 
 ---
@@ -135,13 +144,18 @@ deepspan/
 
 | Preset | 설명 |
 |--------|------|
-| `dev` | userspace C++ 전체 (hw-model 포함), 테스트 ON |
+| `dev` | userspace C++ 전체 (hw-model 포함), 테스트 ON — **HWIP 없음** |
 | `dev-submodule` | third_party를 git submodule로 참조 |
-| `dev-hwip` | dev + HWIP accel C++ 플러그인 (`DEEPSPAN_BUILD_HWIP=ON`) |
-| `sim` | 시뮬레이션 최적화 빌드 |
-| `release` | 최적화, 테스트 OFF |
+| `dev-hwip` | dev + HWIP accel C++ 플러그인 (`DEEPSPAN_BUILD_HWIP=ON`) — **기본값** |
+| `dev-multi-hwip` | dev + 복수 HWIP 플러그인 동시 빌드 (`HWIP_TYPES=accel,codec`) |
+| `dev-crc32` | dev + CRC32 HWIP 플러그인 (`HWIP_TYPES=crc32`) |
+| `asan-ubsan` | Debug + `-fsanitize=address,undefined`, halt on first error |
+| `sim` | 시뮬레이션 최적화 빌드 (firmware 포함) |
+| `release` | 최적화, 테스트 OFF, install 활성화 |
 | `arm64-cross` | ARM64 크로스 컴파일 |
 | `coverage` | gcov 커버리지 |
+
+전체 목록은 `CMakePresets.json` 참조.
 
 ---
 
@@ -149,12 +163,16 @@ deepspan/
 
 | 워크플로우 | 트리거 | 내용 |
 |-----------|--------|------|
-| `ci-firmware.yml` | `firmware/**` | native_sim 빌드 + twister |
-| `ci-cpp.yml` | `runtime/**`, `sim/**`, `CMakeLists.txt` | CMake dev/dev-submodule 빌드 + ctest |
+| `ci-cpp.yml` | `hwip/**`, `runtime/**`, `sim/**`, `server/**`, `api/proto/**`, `CMakeLists.txt`, `CMakePresets.json` | 4-preset 매트릭스 빌드 + ctest, clang-tidy strict (dev-hwip), ASan+UBSan gating |
+| `ci-firmware.yml` | `firmware/**`, `hwip/accel/firmware/**`, `west.yml` | native_sim 빌드 + twister |
 | `ci-kernel.yml` | `kernel/**` | out-of-tree 모듈 컴파일 체크 |
-| `ci-python.yml` | `sdk/**` | pytest |
-| `ci-codegen.yml` | `codegen/**`, `hwip/**/hwip.yaml` | codegen TDD + hwip 아티팩트 stale 검증 |
-| `hwip-cpp.yml` | `hwip/**`, `CMakeLists.txt` | dev-hwip preset 빌드 + ctest |
+| `ci-python.yml` | `sdk/**`, `api/proto/**`, `codegen/**`, `hwip/**/hwip.yaml` | pytest (Python 3.11/3.12 매트릭스) |
+| `ci-codegen.yml` | `codegen/**`, `hwip/**/hwip.yaml` | pytest + ruff + 실제 hwip.yaml stale 검증 |
+| `release.yml` | main push | release-please → 태그 · GitHub Release · PyPI (SDK) · platform tarball |
+
+모든 CI 워크플로는 `permissions: { contents: read }` + `concurrency:` 그룹 + `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true`로 하드닝되어 있습니다. C++ 빌드는 ccache (800 MB, preset별 버킷)로 캐시됩니다.
+
+Dependabot(`.github/dependabot.yml`)이 github-actions / pip(sdk, codegen)을 주간 업데이트합니다. 코드 소유권: `.github/CODEOWNERS`.
 
 ---
 
@@ -168,4 +186,4 @@ deepspan/
 
 ---
 
-> 최종 업데이트: 2026-03-21 — C++20 마이그레이션 완료 (Go→C++, l*-prefix→semantic 디렉토리)
+> 최종 업데이트: 2026-04-18 — 빌드/CI 전면 점검: ASan+UBSan gating, clang-tidy CI, Dependabot, ccache CMake 라우팅, `DEEPSPAN_DEFAULT_PRESET` 도입
