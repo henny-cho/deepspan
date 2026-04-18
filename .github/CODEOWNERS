@@ -1,0 +1,25 @@
+# CODEOWNERS for the deepspan monorepo.
+#
+# Syntax: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/about-code-owners
+# Matches are last-wins, so more-specific paths override earlier rules.
+
+# Default reviewer for any file not matched below.
+*                               @henny-cho
+
+# Build and release machinery — changes here should get extra scrutiny.
+/CMakeLists.txt                 @henny-cho
+/CMakePresets.json              @henny-cho
+/cmake/                         @henny-cho
+/.github/                       @henny-cho
+/scripts/                       @henny-cho
+/.release-please-config.json    @henny-cho
+/.release-please-manifest.json  @henny-cho
+/west.yml                       @henny-cho
+
+# Code-generation tool — backwards-compat surface for every HWIP.
+/codegen/                       @henny-cho
+/hwip/_template/                @henny-cho
+
+# Public API surfaces.
+/api/proto/                     @henny-cho
+/STABLE_API.md                  @henny-cho
