@@ -40,7 +40,7 @@ jobs:
       ZEPHYR_TOOLCHAIN_VARIANT: host
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: deepspan
 
@@ -70,7 +70,7 @@ jobs:
 
       - name: Upload twister results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: twister-results
           path: deepspan/twister-out/
@@ -81,7 +81,7 @@ jobs:
     container:
       image: ghcr.io/zephyrproject-rtos/ci-base:v0.27.4
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Check hwip accel firmware exists
         id: check

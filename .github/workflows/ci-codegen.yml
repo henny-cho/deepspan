@@ -37,14 +37,14 @@ jobs:
         python-version: ['3.11', '3.12']
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           version: latest
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: uv-codegen-${{ matrix.python-version }}-${{ hashFiles('codegen/pyproject.toml') }}
@@ -69,7 +69,7 @@ jobs:
 
       - name: Upload coverage
         if: always() && matrix.python-version == '3.12'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: codegen-coverage
           path: codegen/coverage.xml
@@ -79,12 +79,12 @@ jobs:
     runs-on: ubuntu-24.04
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/.cache/uv
           key: uv-codegen-lint-${{ hashFiles('codegen/pyproject.toml') }}
@@ -105,9 +105,9 @@ jobs:
     name: Integration — generate from accel hwip.yaml
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v7
 
       - name: Install deepspan-codegen
         working-directory: codegen
