@@ -36,7 +36,7 @@ jobs:
       tag_name: ${{ steps.rp.outputs.tag_name }}
       sdk--release_created: ${{ steps.rp.outputs['sdk--release_created'] }}
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         id: rp
         with:
           config-file: .release-please-config.json
@@ -57,9 +57,9 @@ jobs:
     permissions:
       id-token: write  # OIDC trusted publisher
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v7
 
       - name: Build SDK wheel
         working-directory: sdk
@@ -75,7 +75,7 @@ jobs:
     if: needs.release-please.outputs.releases_created == 'true'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install build dependencies
         run: |
@@ -101,7 +101,7 @@ jobs:
             -C dist deepspan-platform
 
       - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.release-please.outputs.tag_name }}
           files: deepspan-platform-*.tar.gz

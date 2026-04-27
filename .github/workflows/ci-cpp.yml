@@ -52,7 +52,7 @@ jobs:
         preset: [dev, dev-submodule, dev-hwip, dev-crc32]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -75,7 +75,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cpp-test-results-${{ matrix.preset }}
           path: build/${{ matrix.preset }}/Testing/
@@ -85,7 +85,7 @@ jobs:
     name: Sanitizers (ASan + UBSan)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -106,7 +106,7 @@ jobs:
 
       - name: Upload sanitizer test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cpp-test-results-asan-ubsan
           path: build/asan-ubsan/Testing/
